@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f5a6e">
+<meta name="description" content="City of Zero: a town built by its followers. Move in, get your house and your citizen passport.">
+<title>City of Zero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: cheerful little town, like the cartoon in the videos — warm, playful, never childish.
+   IDEA: the mayor's town-planning table: a hand-inked isometric model of the town you can pick houses from.
+   PICTURE: the live isometric map, every follower a cottage on a 5x10 block, the next free plot glowing.
+   COLOUR and TYPE: teal town-sign band, sandy ground, grass green, tomato red for "move in"; ink #351f22. Baloo 2 + Nunito.
+   LAYOUT: sign band with the Instagram count, the map as the hero, then newest citizens + how to move in, footer. */
+:root{color-scheme:light dark;
+  --bg:light-dark(#f6ecd6,#14222a);--paper:light-dark(#fffaf0,#1c2f38);--ink:light-dark(#351f22,#f4ead5);
+  --soft:light-dark(#7a6252,#b9c7c9);--line:light-dark(#351f22,#0b1418);--teal:#1f5a6e;--teal2:#2f6f86;
+  --red:#d2483e;--gold:#f2c46a;--grass:#8fbf5c}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Nunito,system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:"Baloo 2",Nunito,sans-serif;line-height:1.05;margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto}
+.band{padding:clamp(22px,3.5vw,48px) max(4vw,16px)}
+
+/* sign band */
+.top{background:var(--teal);color:#f4ead5;padding-bottom:0}
+.head{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px 32px;align-items:end}
+.sign{display:inline-block;background:#f4ead5;color:#351f22;border:4px solid #351f22;border-radius:14px;padding:6px 18px 2px;box-shadow:0 6px 0 #133b49;transform:rotate(-1.5deg)}
+.sign h1{font-size:clamp(34px,6vw,52px);letter-spacing:.5px}
+.tag{font-size:17px;max-width:46ch;margin:14px 0 0;color:#dce9e6}
+.stats{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 18px;align-items:center;background:#174a5b;border:3px solid #0f3542;border-radius:18px;padding:14px 18px}
+.pop{font-family:"Baloo 2",Nunito,sans-serif;font-size:clamp(44px,7vw,64px);line-height:1;color:var(--gold);font-variant-numeric:tabular-nums}
+.pop small{display:block;font:700 13px Nunito;color:#bfd6d5}
+.goal{font-weight:700;font-size:14px}
+.bar{height:14px;background:#0f3542;border-radius:9px;overflow:hidden;margin:6px 0 4px;border:2px solid #0b2a35}
+.bar i{display:block;height:100%;background:linear-gradient(#a6d86f,#7fb94a);border-radius:9px;transition:width .8s}
+.next{font-size:13px;color:#bfd6d5}
+
+/* map */
+.mapband{background:var(--teal);padding-top:22px;padding-bottom:0}
+.map{position:relative;height:min(68vh,640px);min-height:420px;border:4px solid #0f3542;border-bottom:0;border-radius:22px 22px 0 0;overflow:hidden;background:#cfe3d6;touch-action:none;user-select:none}
+.map svg{position:absolute;inset:0;width:100%;height:100%;cursor:grab}
+.map svg.drag{cursor:grabbing}
+.tools{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+.tools>*{pointer-events:auto}
+.search{flex:1 1 220px;max-width:340px;display:flex;background:#fffaf0;border:3px solid #351f22;border-radius:14px;overflow:hidden}
+.search input{flex:1;border:0;background:none;padding:9px 12px;font-size:16px;color:#351f22}
+.search button,.zoom button{border:0;background:#fffaf0;color:#351f22;font-weight:800;min-width:44px;min-height:44px}
+.zoom{display:flex;border:3px solid #351f22;border-radius:14px;overflow:hidden;background:#fffaf0}
+.zoom button+button{border-left:2px solid #e3d6bc}
+.cta{position:absolute;right:16px;bottom:16px;background:var(--red);color:#fff;border:3px solid #351f22;border-radius:16px;padding:12px 20px;font:800 18px "Baloo 2",Nunito,sans-serif;box-shadow:0 5px 0 #351f22;min-height:48px}
+.cta:active{transform:translateY(3px);box-shadow:0 2px 0 #351f22}
+.demo{position:absolute;left:12px;bottom:14px;max-width:min(330px,52%);background:#fffaf0e8;color:#351f22;border:2px solid #351f22;border-radius:12px;padding:6px 10px;font-size:13px}
+.hint{position:absolute;left:50%;bottom:84px;white-space:nowrap;transform:translateX(-50%);background:#351f22d9;color:#fff;border-radius:20px;padding:4px 12px;font-size:13px;pointer-events:none;transition:opacity .6s}
+svg text{font-family:"Baloo 2",Nunito,sans-serif;paint-order:stroke;stroke-linejoin:round}
+.pulse{animation:pulse 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{50%{transform:scale(1.18)}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}.bar i{transition:none}}
+
+/* lower sections */
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.card{background:var(--paper);border:3px solid var(--line);border-radius:20px;padding:20px 22px;box-shadow:0 5px 0 var(--line)}
+h2{font-size:clamp(26px,3.4vw,34px);margin-bottom:10px}
+.list{list-style:none;margin:0;padding:0}
+.list li{display:flex;gap:12px;align-items:center;padding:9px 0;border-top:2px dashed light-dark(#e6d6b8,#2c4450)}
+.list li:first-child{border-top:0}
+.list b{font-weight:800}.list span{color:var(--soft);font-size:14px}
+.list .n{margin-left:auto;font-family:"Baloo 2",Nunito,sans-serif;font-weight:800;color:var(--teal2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dot{width:34px;height:34px;flex:none}
+.link{background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;min-height:44px;display:flex;gap:12px;align-items:center;width:100%}
+.req{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.req input{flex:1 1 180px;border:3px solid var(--line);border-radius:12px;padding:9px 12px;background:var(--bg);font-size:16px}
+.btn{border:3px solid #351f22;border-radius:12px;background:var(--gold);color:#351f22;font-weight:800;padding:9px 16px;min-height:44px}
+.btn.red{background:var(--red);color:#fff}
+.btn.ghost{background:var(--paper);color:var(--ink);border-color:var(--line)}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;counter-reset:s}
+.step{display:flex;gap:14px}
+.step i{flex:none;width:46px;height:46px;border-radius:50%;background:var(--teal);color:var(--gold);display:grid;place-items:center;font:800 24px "Baloo 2",Nunito,sans-serif;font-style:normal;border:3px solid var(--line)}
+.step h3{font-size:22px;margin:4px 0 4px}
+.step p{margin:0;color:var(--soft)}
+footer{background:var(--teal);color:#cfe0de;font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 24px;justify-content:space-between}
+
+/* dialogs */
+.veil{position:fixed;inset:0;background:#0d1a20b3;display:none;align-items:flex-end;justify-content:center;z-index:20;padding:12px}
+.veil.on{display:flex}
+.sheet{background:var(--paper);color:var(--ink);border:4px solid var(--line);border-radius:24px;width:min(560px,100%);max-height:92vh;overflow:auto;padding:22px;position:relative;box-shadow:0 8px 0 var(--line)}
+@media(min-width:700px){.veil{align-items:center}}
+.x{position:absolute;top:10px;right:10px;width:44px;height:44px;border-radius:50%;border:3px solid var(--line);background:var(--bg);font:800 20px Nunito}
+.sheet h2{padding-right:48px}
+.f{display:grid;gap:14px;margin-top:10px}
+.f label{display:grid;gap:4px;font-weight:800;font-size:15px}
+.f input,.f select,.f textarea{border:3px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg);font-size:16px;font-weight:600}
+.f textarea{resize:vertical;min-height:64px}
+.f small{font-weight:600;color:var(--soft)}
+.sw{display:flex;gap:10px;flex-wrap:wrap}
+.sw button{width:56px;height:56px;border-radius:14px;border:3px solid var(--line);background:var(--bg);padding:2px}
+.sw button[aria-pressed=true]{outline:4px solid var(--red);outline-offset:2px}
+.check{display:flex!important;grid-template-columns:none!important;align-items:flex-start;gap:10px!important;font-weight:700!important}
+.check input{width:22px;height:22px;margin-top:2px}
+.acct{border:3px solid #351f22;border-radius:14px;background:#fffaf0;color:#351f22;font-weight:800;padding:0 14px;min-height:50px;margin-left:auto;display:flex;align-items:center;gap:8px}
+.acct i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--teal2);color:#fff;font-style:normal;font-size:13px}
+.gbtn{display:flex;align-items:center;gap:14px;width:100%;border:0;border-radius:40px;background:#202124;color:#fff;font:700 18px Nunito;padding:6px 22px 6px 6px;min-height:56px;margin-top:16px}
+.gbtn span{width:44px;height:44px;border-radius:50%;background:#fff;display:grid;place-items:center;flex:none}
+.gbtn b{flex:1;text-align:center;font-weight:700}
+.perks{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px;font-weight:800}
+.perks li{display:flex;gap:10px;align-items:flex-start}.perks li::before{content:"✓";flex:none;width:22px;height:22px;margin-top:1px;border-radius:50%;background:#7fb94a;color:#fff;font-size:13px;display:grid;place-items:center;border:2px solid var(--line)}
+.box{background:light-dark(#fff3c9,#2a3b30);border:3px solid light-dark(#f1d77c,#4d6a52);border-radius:20px;padding:18px}
+.iab{background:#fde3df;color:#5a1d17;border:2px solid #d2483e;border-radius:14px;padding:10px 12px;margin-top:14px;font-weight:700}
+.iab .btn{margin-top:8px}
+.fine{font-size:13px;color:var(--soft);margin:12px 0 0;text-align:center}
+.signed{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:14px;color:var(--soft);margin-top:4px}
+.linkbtn{background:none;border:0;padding:0;color:var(--teal2);font-weight:800;text-decoration:underline;min-height:32px}
+.mayor{background:var(--gold)}
+.mbar{position:absolute;left:12px;right:12px;bottom:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fffaf0;color:#351f22;border:3px solid #351f22;border-radius:16px;padding:8px;box-shadow:0 5px 0 #351f22;z-index:3}
+.mbar select,.mbar input,.panel input,.panel select{border:2px solid #351f22;border-radius:10px;background:#fff;color:#351f22;font:700 16px Nunito;min-height:44px;padding:0 10px}
+.mbar .fl{display:flex;align-items:center;gap:6px;font-weight:800;font-size:14px}
+.mbar .fl input{width:110px}
+.mbar .grow{flex:1}
+.mbar small{font-weight:700;color:#7a6252;min-width:0}
+.panel{position:absolute;right:12px;top:76px;width:min(300px,calc(100% - 24px));max-height:calc(100% - 170px);overflow:auto;background:#fffaf0;color:#351f22;border:3px solid #351f22;border-radius:16px;padding:12px 14px;z-index:3;display:grid;gap:10px}
+.panel h3{font-size:20px}
+.panel label{display:grid;gap:3px;font-weight:800;font-size:13px}
+.panel .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.panel input[type=color]{padding:2px;height:44px;width:100%}
+.panel input[type=range]{min-height:30px;padding:0}
+.panel .ck{display:flex;align-items:center;gap:8px;font-size:15px}
+.panel .ck input{width:22px;height:22px;min-height:0}
+.panel .btn{padding:8px 12px}
+[hidden]{display:none!important}
+.editing .cta,.editing .hint,.editing .demo{display:none}
+.err{color:var(--red);font-weight:800;min-height:1.2em;margin:0}
+.pass canvas{width:100%;height:auto;border-radius:16px;border:3px solid var(--line);display:block;background:#1f5a6e}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.who{display:flex;gap:16px;align-items:center;margin:8px 0 12px}
+.who svg{width:92px;height:92px;flex:none}
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 14px;margin:0}
+.facts dt{color:var(--soft);font-weight:700}.facts dd{margin:0;font-weight:800}
+.quote{background:var(--bg);border-radius:12px;padding:10px 12px;margin-top:12px;font-style:italic}
+
+@media(max-width:820px){.head,.grid2{grid-template-columns:minmax(0,1fr)}.steps{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.panel{top:auto;bottom:150px;max-height:45%}.map{height:64vh;min-height:380px;border-radius:18px 18px 0 0}.cta{right:10px;bottom:10px;padding:10px 14px;font-size:16px}.demo{display:none}}
+</style>
+</head>
+<body>
+<header class="band top">
+  <div class="wrap head">
+    <div>
+      <div class="sign"><h1>City of Zero</h1></div>
+      <p class="tag">A town that started with nobody but the mayor. Follow the town and you are a citizen. Make your Citizen ID and your name goes on a house on the map.</p>
+    </div>
+    <div class="stats" aria-live="polite">
+      <div class="pop" id="pop">—<small>followers on Instagram</small></div>
+      <div>
+        <div class="goal" id="popLine">Every follower is a citizen.</div>
+        <div class="next" id="next">Next free house: Block 2</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="band mapband" aria-label="Town map">
+  <div class="wrap">
+    <div class="map" id="map">
+      <svg id="svg" role="img" aria-label="Isometric map of City of Zero with every citizen's house"></svg>
+      <div class="tools">
+        <form class="search" id="find" role="search">
+          <input id="q" type="search" placeholder="Find a citizen (@handle)" aria-label="Find a citizen by handle or name" autocomplete="off">
+          <button aria-label="Search">Go</button>
+        </form>
+        <div class="zoom">
+          <button id="zin" aria-label="Zoom in">+</button><button id="zout" aria-label="Zoom out">−</button><button id="zhome" aria-label="Show the whole town">⌂</button>
+        </div>
+        <button class="acct" id="meBtn">Sign in</button>
+        <button class="acct mayor" id="mayorBtn" hidden>Mayor mode</button>
+      </div>
+      <div class="hint" id="hint">Drag to look around · tap a house</div>
+      <div class="demo" id="demo" hidden>Preview mode: Google sign-in and shared citizens start working on your live site once Firebase is connected. Here, new citizens stay in this browser.</div>
+      <button class="cta" id="move">Move in →</button>
+      <div class="mbar" id="mbar" hidden>
+        <select id="addSel" aria-label="Add something to the map"><option value="">+ Add to map…</option></select>
+        <button class="btn ghost" id="undoBtn" type="button">Undo</button>
+        <label class="fl">Instagram followers <input id="folIn" type="number" min="0" inputmode="numeric"></label>
+        <small class="grow" id="saveMsg">Drag anything to move it. Tap it to edit.</small>
+        <button class="btn red" id="saveBtn" type="button">Save for everyone</button>
+        <button class="btn ghost" id="doneBtn" type="button">Exit</button>
+      </div>
+      <div class="panel" id="panel" hidden></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap grid2">
+    <div class="card">
+      <h2>Newest citizens</h2>
+      <ul class="list" id="arrivals"></ul>
+    </div>
+    <div class="card">
+      <h2>How to move in</h2>
+      <div class="steps" style="grid-template-columns:minmax(0,1fr);gap:16px;margin-top:6px">
+        <div class="step"><i>1</i><div><h3>Follow the town</h3><p>Follow City of Zero on Instagram, TikTok or YouTube. That makes you a citizen.</p></div></div>
+        <div class="step"><i>2</i><div><h3>Sign in with Google</h3><p>One Google account, one Citizen ID. Your email stays private.</p></div></div>
+        <div class="step"><i>3</i><div><h3>Make your Citizen ID</h3><p>Your display name goes on your house on the map, and you get an ID card for your story.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="band"><div class="wrap"><span>City of Zero · a town built by its followers</span><span>Mayor's office: City Hall, Town Square</span></div></footer>
+
+<div class="veil" id="veilJoin" role="dialog" aria-modal="true" aria-labelledby="jt">
+  <div class="sheet">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div id="loginStep">
+      <h2 id="jt">Get your Citizen ID</h2>
+      <div class="box" style="margin-top:14px">
+        <h3 style="font-size:24px;text-align:center" id="loginHead">Sign in with Google first</h3>
+        <p style="margin:6px 0 0;text-align:center;color:var(--soft)">It keeps your Citizen ID safe and stops fake accounts. Already a citizen? Sign in and your ID shows up.</p>
+        <ul class="perks"><li>1 Google account = 1 Citizen ID</li><li>Your display name goes on your house on the map</li><li>Your email is never shown to other citizens</li></ul>
+        <div class="iab" id="iab" hidden>You're inside the Instagram or TikTok browser, and Google blocks sign-in there. Tap ••• (or the share icon) and choose <b>Open in browser</b>, then sign in.<br><button class="btn ghost" id="copySite" type="button">Copy the site link</button></div>
+        <button class="gbtn" id="gSign" type="button"><span><svg width="24" height="24" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg></span><b>Continue with Google</b></button>
+        <p class="err" id="loginErr" role="alert" style="text-align:center;margin-top:8px"></p>
+        <p class="fine" id="loginNote">By signing in you agree to the town rules: be kind, one ID per person.</p>
+      </div>
+    </div>
+    <div id="joinStep" hidden>
+      <h2 id="joinTitle">Make your Citizen ID</h2>
+      <div class="signed"><span id="signedAs"></span><button class="linkbtn" type="button" data-signout>Sign out</button></div>
+      <p style="margin:6px 0 0;color:var(--soft)" id="joinPlot">Your house will go up on the next free plot.</p>
+      <form class="f" id="joinForm" novalidate>
+        <label>Display name on the map<input id="fName" maxlength="24" required autocomplete="nickname" placeholder="Alyssa"></label>
+        <label id="handleRow">Your handle<input id="fHandle" maxlength="31" required autocapitalize="off" spellcheck="false" placeholder="@yourname"><small>The one you follow us with. Letters, numbers, dots and underscores.</small></label>
+        <label id="fromRow">Where do you follow us?<select id="fFrom"><option>Instagram</option><option>TikTok</option><option>YouTube</option></select></label>
+        <div><div style="font-weight:800;font-size:15px;margin-bottom:6px">Your house colours</div><div class="sw" id="sw"></div></div>
+        <label>A word to the mayor <small>(optional)</small><textarea id="fMsg" maxlength="80" placeholder="Can I move in, please?"></textarea></label>
+        <label class="check" id="followRow"><input type="checkbox" id="fFollow"> I follow City of Zero</label>
+        <p class="err" id="joinErr" role="alert"></p>
+        <button class="btn red" id="joinBtn" style="font-size:18px">Move in</button>
+      </form>
+    </div>
+    <div id="passStep" class="pass" hidden>
+      <h2>Your Citizen ID</h2>
+      <p style="margin:6px 0 12px;color:var(--soft)" id="passTxt"></p>
+      <canvas id="passport" width="1080" height="1500" aria-label="Your City of Zero Citizen ID"></canvas>
+      <div class="row">
+        <button class="btn red" id="dl">Save my ID</button>
+        <button class="btn" id="seeHouse">See my house</button>
+        <button class="btn ghost" id="copyLink">Copy my house link</button>
+        <button class="btn ghost" id="editMe">Edit</button>
+      </div>
+      <div class="signed" style="margin-top:12px"><span id="signedAs2"></span><button class="linkbtn" type="button" data-signout>Sign out</button></div>
+      <p class="err" id="passMsg" role="status"></p>
+    </div>
+  </div>
+</div>
+
+<div class="veil" id="veilCard" role="dialog" aria-modal="true" aria-labelledby="ct">
+  <div class="sheet">
+    <button class="x" data-close aria-label="Close">×</button>
+    <div id="cardBody"></div>
+  </div>
+</div>
+
+<script type="module">
+{
+// ======== settings ========
+// FIREBASE: paste the firebaseConfig object from your Firebase project here (see the setup guide).
+// Leave it as null to run in preview mode (sign-ups stay in this browser).
+const CONFIG = {
+  DAY: 'Day 3',         // the day printed on new Citizen IDs
+  FIREBASE: null,       // e.g. { apiKey: '…', authDomain: '…firebaseapp.com', projectId: '…', appId: '…' }
+};
+const RESERVED = ['lyssariiiley', 'juddah.jhay'];
+
+const FOUNDERS = 90;                       // citizens from the videos before sign-ups opened
+const SEED = [                             // named citizens from the videos
+  { n: 91, name: 'Alyssa', handle: 'lyssariiiley', from: 'Instagram', style: 2, msg: "im joining.", day: 'Day 2' },
+  { n: 92, name: 'Juddah', handle: 'juddah.jhay', from: 'Instagram', style: 4, msg: 'Can I move pls?', day: 'Day 2' },
+];
+const STYLES = [['#e8c48f', '#b9533f'], ['#cfe0d4', '#3f6f86'], ['#f0d2c2', '#6b8f4e'], ['#dcd8ee', '#8a5a9e'], ['#f3e2a6', '#c2574a']];
+const INK = '#351f22';
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+let live = { citizens: [] }, user = null, mine = null, FB = null, isAdmin = false;
+const BAD = /(fuck|shit|bitch|nigg|cunt|porn|sex|kontol|anjing|bangsat|memek|ngentot)/i;
+
+// ======== plots: blocks of 5 x 10, filled the same way as in the videos ========
+const P = 2.6;
+const STREETS = { 1: 'Main St', 2: 'Main St', 3: 'Main St South', 4: 'Farm Rd', 5: 'Sunset Ln', 6: 'North Ln', 7: 'North Ln' };
+function blockDef(b) {
+  const it = layout.items.find((i) => i.type === 'block' && +i.b === b);
+  const d = it || { x: -40 - 30 * ((b - 8) % 3), z: -8 + 16 * Math.floor((b - 8) / 3), dx: -1, dz: 1 };
+  return { x: d.x, z: d.z, dx: d.dx, dz: d.dz, street: (it && it.label) || STREETS[b] || 'Outer Rd' };
+}
+function slot(n) {          // citizen number -> block, column (0..9 away from the square), row (0..4 away from the street)
+  if (n <= 50) return { b: 1, c: Math.floor((n - 1) / 5), r: (n - 1) % 5 };
+  if (n <= 90) return { b: 2, c: Math.floor((n - 51) / 5), r: (n - 51) % 5 };
+  if (n <= 92) return { b: 2, c: n - 83, r: 0 };
+  if (n <= 100) return { b: 2, c: 8 + Math.floor((n - 93) / 4), r: 1 + (n - 93) % 4 };
+  const i = n - 101; return { b: 3 + Math.floor(i / 50), c: Math.floor((i % 50) / 5), r: i % 5 };
+}
+function plotPos(s) { const d = blockDef(s.b); return { x: d.x + d.dx * s.c * P, z: d.z + d.dz * s.r * P }; }
+function address(n) { const s = slot(n), d = blockDef(s.b); return `Block ${s.b} · Row ${s.r + 1} · No. ${s.c + 1}, ${d.street}`; }
+
+// ======== data + accounts (Firebase when configured, preview mode otherwise) ========
+function allCitizens() {
+  const list = [];
+  for (let n = 1; n <= FOUNDERS; n++) list.push({ n, founder: true, style: n % 5, day: n <= 22 ? 'Day 1' : 'Day 2' });
+  return list.concat(SEED, live.citizens.filter((c) => +c.n > 92 && !c.hidden).map((c) => ({ ...c, n: +c.n, style: +c.style || 0 }))).sort((a, b) => a.n - b.n);
+}
+const demo = {
+  load() { live.citizens = store.get('coz-demo') || live.citizens; const l = store.get('coz-layout'); if (l) { layout = l; published = clone(l); } user = store.get('coz-user'); isAdmin = location.hash === '#mayor'; mine = user && live.citizens.find((c) => c.uid === user.uid) || null; },
+  save() { store.set('coz-demo', live.citizens); store.set('coz-user', user); },
+};
+async function initBackend() {
+  if (!CONFIG.FIREBASE) { $('#demo').hidden = false; demo.load(); render(); updateMe(); return; }
+  const base = 'https://www.gstatic.com/firebasejs/10.14.1/';
+  try {
+    const [{ initializeApp }, A, F] = await Promise.all([import(base + 'firebase-app.js'), import(base + 'firebase-auth.js'), import(base + 'firebase-firestore.js')]);
+    const app = initializeApp(CONFIG.FIREBASE); FB = { A, F, auth: A.getAuth(app), db: F.getFirestore(app) };
+  } catch (e) { console.error(e); $('#demo').hidden = false; $('#demo').textContent = 'The town office is offline. Try again in a minute.'; render(); return; }
+  const { A, F, auth, db } = FB;
+  F.onSnapshot(F.query(F.collection(db, 'citizens'), F.where('hidden', '==', false)), (snap) => {
+    live.citizens = snap.docs.map((d) => ({ ...d.data(), uid: d.id }));
+    if (user) mine = live.citizens.find((c) => c.uid === user.uid) || mine;
+    render(); updateMe();
+  }, (e) => console.error(e));
+  F.onSnapshot(F.doc(db, 'town', 'layout'), (d) => { if (!d.exists()) return; const v = d.data(); published = { followers: v.followers || 0, items: v.items || [] }; if (!editing) { layout = clone(published); render(); } else $('#saveMsg').textContent = 'Someone saved a newer map while you were editing.'; }, (e) => console.error(e));
+  A.getRedirectResult(auth).catch(() => {});
+  A.onAuthStateChanged(auth, async (u) => {
+    user = u ? { uid: u.uid, name: u.displayName || '' } : null; mine = null;
+    isAdmin = false;
+    if (user) { try { const d = await F.getDoc(F.doc(db, 'citizens', user.uid)); mine = d.exists() ? { ...d.data(), uid: user.uid } : null; } catch (e) {}
+      try { isAdmin = (await F.getDoc(F.doc(db, 'admins', user.uid))).exists(); } catch (e) {} }
+    updateMe(); if ($('#veilJoin').classList.contains('on')) openJoin();
+  });
+  render();
+}
+async function signIn() {
+  if (!FB) { user = { uid: 'preview-' + Math.random().toString(36).slice(2, 8), name: 'Preview citizen' }; demo.save(); updateMe(); return; }
+  const { A, auth } = FB; const prov = new A.GoogleAuthProvider(); prov.setCustomParameters({ prompt: 'select_account' });
+  try { await A.signInWithPopup(auth, prov); }
+  catch (e) {
+    if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/cancelled-popup-request'].includes(e.code)) return A.signInWithRedirect(auth, prov);
+    if (e.code === 'auth/popup-closed-by-user') return;
+    if (e.code === 'auth/unauthorized-domain') throw new Error('This website address is not on the Firebase allowed list yet.');
+    throw new Error('Google sign-in did not work. Try again.');
+  }
+}
+async function signOut() { if (FB) await FB.A.signOut(FB.auth); user = null; mine = null; if (!FB) demo.save(); updateMe(); closeV(); }
+async function join(c) {
+  if (RESERVED.includes(c.handle)) return { ok: false, error: 'That handle already lives here. If it is you, DM the mayor.' };
+  if (!FB) {
+    if (allCitizens().some((x) => x.handle && x.handle.toLowerCase() === c.handle)) return { ok: false, error: 'That handle already lives here.' };
+    const n = Math.max(92, ...allCitizens().map((x) => x.n)) + 1;
+    mine = { ...c, n, uid: user.uid, day: CONFIG.DAY, hidden: false }; live.citizens.push(mine); demo.save(); return { ok: true, citizen: mine };
+  }
+  const { F, db } = FB; let rec;
+  try {
+    await F.runTransaction(db, async (tx) => {
+      const cRef = F.doc(db, 'meta', 'counter'), hRef = F.doc(db, 'handles', c.handle), meRef = F.doc(db, 'citizens', user.uid);
+      const [cs, hs, ms] = await Promise.all([tx.get(cRef), tx.get(hRef), tx.get(meRef)]);
+      if (ms.exists()) throw new Error('already');
+      if (hs.exists()) throw new Error('taken');
+      if (!cs.exists()) throw new Error('nocounter');
+      const n = cs.data().next;
+      rec = { n, name: c.name, handle: c.handle, from: c.from, style: c.style, msg: c.msg, day: CONFIG.DAY, ts: F.serverTimestamp(), hidden: false };
+      tx.set(meRef, rec); tx.set(hRef, { uid: user.uid }); tx.update(cRef, { next: n + 1 });
+    });
+  } catch (e) {
+    const m = { already: 'You already have a Citizen ID.', taken: 'That handle already lives here. If it is you, DM the mayor.', nocounter: 'The town office is not set up yet (missing meta/counter).' }[e.message];
+    return { ok: false, error: m || 'The town office said no. Check your name and handle.' };
+  }
+  mine = { ...rec, uid: user.uid }; return { ok: true, citizen: mine };
+}
+async function updateMine(ch) {
+  if (!FB) { Object.assign(mine, ch); demo.save(); return { ok: true }; }
+  try { await FB.F.updateDoc(FB.F.doc(FB.db, 'citizens', user.uid), ch); Object.assign(mine, ch); return { ok: true }; }
+  catch (e) { return { ok: false, error: 'Could not save. Check your display name.' }; }
+}
+async function saveLayout() {
+  const data = { followers: Math.max(0, parseInt(layout.followers, 10) || 0), items: layout.items };
+  if (!FB) { store.set('coz-layout', data); published = clone(data); return { ok: true }; }
+  try { await FB.F.setDoc(FB.F.doc(FB.db, 'town', 'layout'), { ...data, updated: FB.F.serverTimestamp() }); published = clone(data); return { ok: true }; }
+  catch (e) { return { ok: false, error: 'Could not save. Is your account on the admins list?' }; }
+}
+function updateMe() {
+  const b = $('#meBtn');
+  if (mine) b.innerHTML = `<i>${esc(String(mine.name || '?').slice(0, 1).toUpperCase())}</i>My ID`;
+  else b.textContent = user ? 'Finish my ID' : 'Sign in';
+  const who = user ? `Signed in as ${esc(user.name || 'citizen')}` : '';
+  $('#signedAs').innerHTML = who; $('#signedAs2').innerHTML = who;
+  $('#mayorBtn').hidden = !isAdmin || editing;
+}
+
+// ======== isometric drawing ========
+const S = 7;
+const iso = (x, z, y = 0) => [((x - z) * 0.866 * S).toFixed(1), ((x + z) * 0.5 * S - y * S * 0.82).toFixed(1)];
+const pts = (a) => a.map((p) => iso(...p).join(',')).join(' ');
+const poly = (a, fill, extra = '') => `<polygon points="${pts(a)}" fill="${fill}" stroke="${INK}" stroke-width="1.1" stroke-linejoin="round" ${extra}/>`;
+const flat = (x0, z0, x1, z1, fill, extra = '') => poly([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], fill, extra);
+function shade(h, f) { const n = parseInt(h.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(v * f)))); return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''); }
+function box(cx, cz, w, d, h, col, y0 = 0) {
+  const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+  return poly([[x0, z1, y0], [x1, z1, y0], [x1, z1, y0 + h], [x0, z1, y0 + h]], shade(col, 0.86)) +
+    poly([[x1, z0, y0], [x1, z1, y0], [x1, z1, y0 + h], [x1, z0, y0 + h]], shade(col, 0.72)) +
+    poly([[x0, z0, y0 + h], [x1, z0, y0 + h], [x1, z1, y0 + h], [x0, z1, y0 + h]], col);
+}
+function cottage(x, z, st, sc = 1) {
+  const [wall, roof] = STYLES[st % 5]; const w = 1.7 * sc, d = 1.5 * sc, h = 1.15 * sc, rh = 0.75 * sc;
+  const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2, o = 0.15 * sc;
+  return box(x, z, w, d, h, wall) +
+    poly([[x0, z0 - o, h], [x1, z0 - o, h], [x1, z, h + rh], [x0, z, h + rh]], shade(roof, 0.75)) +
+    poly([[x1, z0, h], [x1, z1, h], [x1, z, h + rh]], shade(wall, 0.72)) +
+    poly([[x0, z1 + o, h], [x1, z1 + o, h], [x1, z, h + rh], [x0, z, h + rh]], roof) +
+    poly([[x - 0.18 * sc, z1, 0], [x + 0.18 * sc, z1, 0], [x + 0.18 * sc, z1, 0.62 * sc], [x - 0.18 * sc, z1, 0.62 * sc]], shade(roof, 0.9));
+}
+function tree(x, z, r = 1, leaf = '#6fa34a') {
+  const [tx, ty] = iso(x, z, 0.0), [cx, cy] = iso(x, z, 1.9 * r);
+  return `<rect x="${tx - 1.6}" y="${cy}" width="3.2" height="${ty - cy}" fill="#7a5236" stroke="${INK}" stroke-width=".9"/><circle cx="${cx}" cy="${cy}" r="${7 * r}" fill="${leaf}" stroke="${INK}" stroke-width="1.1"/><circle cx="${cx - 2.2 * r}" cy="${cy - 2.4 * r}" r="${2.4 * r}" fill="#ffffff33"/>`;
+}
+function label(x, z, y, t, size = 11, col = INK) { const [a, b] = iso(x, z, y); return `<text x="${a}" y="${b}" text-anchor="middle" font-size="${size}" font-weight="800" fill="${col}" stroke="#fffaf0" stroke-width="3.2">${esc(t)}</text>`; }
+
+// ======== town layout: every building, road and block the mayor can drag around ========
+const TYPES = {
+  building: 'New building', tree: 'Tree', park: 'Park', pond: 'Pond', road: 'Road', block: 'House block (50 plots)',
+  hall: 'City Hall', square: 'Town square', hospital: 'Hospital', restaurant: 'Restaurant', sweets: 'Sweets store', sign: 'Town sign',
+  rice: 'Rice paddy', wheat: 'Wheat field', orchard: 'Orchard', barn: 'Barn', gate: 'Farm gate',
+};
+const NAMES = { hall: 'City Hall', hospital: 'Hospital', restaurant: 'Restaurant', sweets: 'Sweets', rice: 'Rice paddy', wheat: 'Wheat field', orchard: 'Orchard', gate: 'Farms', barn: 'Barn', square: 'Town square' };
+const DEFAULT_LAYOUT = { followers: 92, items: [
+  { id: 'b1', type: 'block', b: 1, x: -11.3, z: -8.0, dx: -1, dz: -1 }, { id: 'b2', type: 'block', b: 2, x: 11.3, z: -8.0, dx: 1, dz: -1 },
+  { id: 'b3', type: 'block', b: 3, x: -11.3, z: 0.2, dx: -1, dz: 1 }, { id: 'b4', type: 'block', b: 4, x: 22.0, z: 1.2, dx: 1, dz: 1, hidden: true },
+  { id: 'b5', type: 'block', b: 5, x: -11.3, z: 16.4, dx: -1, dz: 1, hidden: true },
+  { id: 'r1', type: 'road', x: -35.5, z: -4, len: 53, dir: 'x' }, { id: 'r2', type: 'road', x: 36.5, z: -4, len: 55, dir: 'x' },
+  { id: 'r3', type: 'road', x: 0, z: 29, len: 46, dir: 'z' }, { id: 'r4', type: 'road', x: 65, z: -4, len: 42, dir: 'x', dirt: true },
+  { id: 'sq', type: 'square', x: 0, z: -4 }, { id: 'hall', type: 'hall', x: 0, z: -11.4, note: "The mayor's office, in the middle of the town square park." },
+  { id: 'hosp', type: 'hospital', x: 15.2, z: 3.5, by: 'lullbabyleann' }, { id: 'rest', type: 'restaurant', x: 15, z: 12.6, by: 'jannat_who_else0801', note: 'Free dining all week.' },
+  { id: 'sweet', type: 'sweets', x: -6.2, z: 31.4, by: 'bullockcian', note: 'Every new citizen gets a free pastry or candy.' }, { id: 'sign', type: 'sign', x: 3.7, z: 33 },
+  { id: 'rice', type: 'rice', x: 54, z: -15, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'wheat', type: 'wheat', x: 54, z: 7.25, by: 's.a.m.i.r.a_s.a.r.k.e.r' },
+  { id: 'orch', type: 'orchard', x: 72.6, z: -3, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'barn', type: 'barn', x: 60.5, z: 17.5 },
+  { id: 'gate', type: 'gate', x: 43.5, z: -4, note: 'Farmers wanted!' },
+  ...[[-6.5, 40], [-7.2, 44], [6.6, 26], [7.8, 30], [8, 38], [-44, -14], [-40, 6], [40, 22], [42, -32], [-46, -34], [20, 30], [26, 26], [-26, 32], [36, 34]].map(([x, z], i) => ({ id: 't' + i, type: 'tree', x, z, r: 0.8 + (i % 3) * 0.1 })),
+] };
+const clone = (o) => JSON.parse(JSON.stringify(o));
+let layout = clone(DEFAULT_LAYOUT), published = clone(DEFAULT_LAYOUT);
+const SIZES = { s: [2.6, 2.4, 1.8], m: [3.6, 3.2, 2.6], l: [5, 4.4, 3.4] };
+function gable(x, z, w, d, h, wall, roof) {
+  const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2, rh = Math.min(w, d) * 0.45, o = 0.2;
+  return box(x, z, w, d, h, wall) + poly([[x0, z0 - o, h], [x1, z0 - o, h], [x1, z, h + rh], [x0, z, h + rh]], shade(roof, 0.75)) +
+    poly([[x1, z0, h], [x1, z1, h], [x1, z, h + rh]], shade(wall, 0.72)) + poly([[x0, z1 + o, h], [x1, z1 + o, h], [x1, z, h + rh], [x0, z, h + rh]], roof) +
+    poly([[x - 0.3, z1, 0], [x + 0.3, z1, 0], [x + 0.3, z1, 1.1], [x - 0.3, z1, 1.1]], shade(roof, 0.9));
+}
+const circ = (x, z, r, fill, extra = '') => poly(Array.from({ length: 18 }, (_, i) => [x + r * Math.cos(i * 0.349), z + r * Math.sin(i * 0.349)]), fill, extra);
+const nameOf = (it) => it.label || NAMES[it.type] || '';
+// each drawer returns { flat: svg drawn first, solid: [{ k: depth, svg }], top: svg drawn last }
+const DRAW = {
+  road(it) { const L = it.len || 20, c = it.dirt ? '#b78c60' : '#8f877c'; let f;
+    if (it.dir === 'z') { f = flat(it.x - 1.6, it.z - L / 2, it.x + 1.6, it.z + L / 2, c); if (!it.dirt) for (let z = it.z - L / 2 + 1; z < it.z + L / 2 - 2; z += 4) f += flat(it.x - 0.1, z, it.x + 0.1, z + 2, '#f2e6c4', 'stroke="none"'); }
+    else { f = flat(it.x - L / 2, it.z - 1.6, it.x + L / 2, it.z + 1.6, c); if (!it.dirt) for (let x = it.x - L / 2 + 1; x < it.x + L / 2 - 2; x += 4) f += flat(x, it.z - 0.1, x + 2, it.z + 0.1, '#f2e6c4', 'stroke="none"'); }
+    return { flat: f }; },
+  square(it) { const { x, z } = it; const [fx, fy] = iso(x, z + 3);
+    return { flat: flat(x - 9, z - 10, x + 9, z + 10, '#e2cfab') + flat(x - 7, z - 1.8, x + 7, z + 7.8, '#9cc96b') + flat(x - 7, z + 2.35, x + 7, z + 3.65, '#efe3c6', 'stroke-width=".6"') + flat(x - 0.65, z - 1.8, x + 0.65, z + 7.8, '#efe3c6', 'stroke-width=".6"') +
+      `<ellipse cx="${fx}" cy="${fy}" rx="14" ry="8" fill="#c9bba6" stroke="${INK}"/><ellipse cx="${fx}" cy="${fy - 1}" rx="11" ry="6" fill="#8fc6d6"/><circle cx="${fx}" cy="${fy - 9}" r="3" fill="#d9f0f6" stroke="${INK}"/>`,
+      solid: [[-5.3, -0.3], [5.3, -0.3], [-5.3, 6.2], [5.3, 6.2]].map(([a, b]) => ({ k: x + a + z + b, svg: tree(x + a, z + b, 0.8) })) }; },
+  block(it, cits) { const d = it, xs = [d.x - d.dx * 1.3, d.x + d.dx * (9 * P + 1.3)], zs = [d.z - d.dz * 1.3, d.z + d.dz * (4 * P + 1.3)];
+    const n = cits.filter((c) => slot(c.n).b === +d.b).length;
+    return { flat: flat(Math.min(...xs), Math.min(...zs), Math.max(...xs), Math.max(...zs), n ? '#a7d07a' : '#b9d68e', n ? '' : 'stroke-dasharray="3 3"'),
+      top: label(d.x + d.dx * 4.5 * P, d.z + d.dz * (4 * P + 2.2), 0, `Block ${d.b} · ${n}/50`, 10, '#2f5a3a') }; },
+  hall(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z, 8.6, 5.8, 4.2, '#efe3c8') + box(x, z, 9.2, 6.4, 0.5, '#d9c9a6', 4.2) + box(x, z - 0.8, 1.8, 1.8, 3.2, '#efe3c8', 4.7) + poly([[x - 0.9, z + 0.1, 7.9], [x + 0.9, z + 0.1, 7.9], [x, z - 0.8, 9.3]], '#3f6f86') + label(x, z + 4.4, 5.6, nameOf(it), 13) }] }; },
+  hospital(it) { const { x, z } = it, y = 4.42, c = '#d63b34';
+    return { solid: [{ k: x + z, svg: box(x, z, 4.2, 7.6, 4.4, '#f5f1e8') + poly([[x - 0.25, z - 1, y], [x + 0.25, z - 1, y], [x + 0.25, z + 1, y], [x - 0.25, z + 1, y]], c, 'stroke="none"') + poly([[x - 1, z - 0.25, y], [x + 1, z - 0.25, y], [x + 1, z + 0.25, y], [x - 1, z + 0.25, y]], c, 'stroke="none"') + label(x, z + 4.1, 5.3, nameOf(it), 12) }] }; },
+  restaurant(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z, 3, 4, 2.2, '#f6e0b5') + box(x, z, 3.3, 4.3, 0.6, '#a5332e', 2.2) + label(x, z + 2.2, 3.6, nameOf(it), 11) }] }; },
+  sweets(it) { const { x, z } = it, [a, b] = iso(x + 1, z + 0.6, 4.6);
+    return { solid: [{ k: x + z, svg: box(x, z, 3.2, 3.2, 2.3, '#f6c9d6') + box(x, z, 3.5, 3.5, 0.6, '#7fc3b4', 2.3) + `<circle cx="${a}" cy="${b}" r="7" fill="#fbf4e4" stroke="${INK}"/><circle cx="${a}" cy="${b}" r="3.5" fill="none" stroke="#e85a7a" stroke-width="2.4"/>` + label(x, z + 2.2, 3.6, nameOf(it), 11) }] }; },
+  sign(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z, 1.3, 0.12, 1.8, '#f4ead5') + label(x, z, 2.6, 'POP. ' + (layout.followers || '—'), 10, '#2f6f86') }] }; },
+  rice(it) { const { x, z } = it; let f = flat(x - 8, z - 6.6, x + 8, z + 6.6, '#86bdb3'); for (let zz = z - 5.5; zz < z + 6.4; zz += 1.6) f += flat(x - 7.4, zz, x + 7.4, zz + 0.5, '#6aa86a', 'stroke="none"');
+    return { flat: f, top: label(x, z + 6.5, 0.4, nameOf(it), 11) }; },
+  wheat(it) { const { x, z } = it; let w = ''; for (let zz = z - 5.25; zz < z + 5.75; zz += 1.4) w += box(x, zz + 0.45, 15, 0.9, 0.8, '#d9a845');
+    return { flat: flat(x - 7.5, z - 5.75, x + 7.5, z + 5.75, '#8f6a48'), solid: [{ k: x + z - 4, svg: w }], top: label(x - 7.2, z + 6.75, 1.6, nameOf(it), 11) }; },
+  orchard(it) { const sol = []; for (let c = 0; c < 4; c++) for (let r = 0; r < 6; r++) { const tx = it.x - 5.1 + c * 3.4, tz = it.z - 9 + r * 3.6, [a, b] = iso(tx, tz, 1.6);
+      sol.push({ k: tx + tz, svg: tree(tx, tz, 0.8, r % 2 ? '#5f9a3c' : '#6fa34a') + `<circle cx="${+a + 3}" cy="${b}" r="1.8" fill="${['#d63b34', '#f08a2a', '#e8c53a'][(c + r) % 3]}"/>` }); }
+    return { solid: sol, top: label(it.x, it.z + 10.4, 0.2, nameOf(it), 11) }; },
+  barn(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z, 4.2, 5, 3, '#b5402f') + poly([[x - 2.1, z - 2.5, 3], [x + 2.1, z - 2.5, 3], [x + 2.1, z + 2.5, 3], [x - 2.1, z + 2.5, 3]], '#5b4a44') + (it.label ? label(x, z + 2.8, 3.8, it.label, 11) : '') }] }; },
+  gate(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z - 2.9, 0.4, 0.4, 3.6, '#7a4a2c') + box(x, z + 2.9, 0.4, 0.4, 3.6, '#7a4a2c') + poly([[x, z - 3.2, 3.3], [x, z + 3.2, 3.3], [x, z + 3.2, 3.9], [x, z - 3.2, 3.9]], '#7a4a2c') + label(x, z, 4.6, nameOf(it), 10) }] }; },
+  tree(it) { return { solid: [{ k: it.x + it.z, svg: tree(it.x, it.z, it.r || 0.85) }] }; },
+  park(it) { const { x, z } = it; return { flat: flat(x - 4, z - 3, x + 4, z + 3, '#9cc96b') + flat(x - 0.5, z - 3, x + 0.5, z + 3, '#efe3c6', 'stroke-width=".6"'),
+      solid: [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]].map(([a, b]) => ({ k: x + a + z + b, svg: tree(x + a, z + b, 0.7) })), top: it.label ? label(x, z + 3.6, 0.3, it.label, 11) : '' }; },
+  pond(it) { return { flat: circ(it.x, it.z, it.r || 2.6, '#8fc6d6'), top: it.label ? label(it.x, it.z + (it.r || 2.6) + 0.8, 0.2, it.label, 10) : '' }; },
+  building(it) { const [w, d, h] = SIZES[it.size || 'm']; const [ww, dd] = it.rot ? [d, w] : [w, d];
+    return { solid: [{ k: it.x + it.z, svg: gable(it.x, it.z, ww, dd, h, it.wall || '#f3e2a6', it.roof || '#c2574a') + (nameOf(it) ? label(it.x, it.z + dd / 2 + 0.6, h + 1.6, nameOf(it), 11) : '') }] }; },
+};
+const FLAT_ORDER = { block: 0, square: 1, road: 2, rice: 3, wheat: 3, park: 3, pond: 4 };
+
+// ======== map render ========
+const svg = $('#svg');
+let VB = null, HOME = null, focusN = null, editing = false, selId = null, dragId = null, undoStack = [], dirty = false, exitArmed = false;
+function render() {
+  const cits = allCitizens(), maxN = cits[cits.length - 1].n, nextN = maxN + 1;
+  const flats = [], items = [], tops = [];
+  for (const it of layout.items) {
+    if (it.hidden && !editing) continue;
+    const d = (DRAW[it.type] || DRAW.tree)(it, cits), att = `data-item="${it.id}"${it.hidden ? ' opacity=".45"' : ''}`;
+    if (d.flat) flats.push({ o: FLAT_ORDER[it.type] ?? 3, svg: `<g ${att}>${d.flat}</g>` });
+    (d.solid || []).forEach((p) => items.push({ k: p.k, svg: `<g ${att}>${p.svg}</g>` }));
+    if (d.top) tops.push(d.top);
+  }
+  flats.sort((a, b) => a.o - b.o);
+  cits.forEach((c) => { const p = plotPos(slot(c.n)); items.push({ k: p.x + p.z, svg: `<g data-n="${c.n}" style="cursor:pointer${editing ? ';pointer-events:none' : ''}">${cottage(p.x, p.z, c.style)}${c.n === focusN ? `<g class="pulse">${(() => { const [a, b] = iso(p.x, p.z, 3.2); return `<path d="M${a} ${+b + 8} l-6 -9 a6 6 0 1 1 12 0 z" fill="#d2483e" stroke="${INK}" stroke-width="1.4"/>`; })()}</g>` : ''}</g>` }); });
+  const lastB = slot(nextN).b;
+  for (let n = nextN; n <= nextN + 120 && !editing; n++) { const s = slot(n); if (s.b > lastB + 1) break; const p = plotPos(s);
+    items.push({ k: p.x + p.z - 0.01, svg: n === nextN
+      ? `<g data-free="1" style="cursor:pointer">${flat(p.x - 1, p.z - 1, p.x + 1, p.z + 1, '#fff3c4')}<g class="pulse">${label(p.x, p.z, 0.9, '+', 20, '#d2483e')}</g></g>`
+      : flat(p.x - 0.9, p.z - 0.9, p.x + 0.9, p.z + 0.9, '#c8a676', 'stroke-dasharray="2 2" stroke-width=".7"') }); }
+  items.sort((a, b) => a.k - b.k);
+  if (!editing) { const p = plotPos(slot(nextN)); tops.push(`<g data-free="1" style="cursor:pointer">${label(p.x, p.z, 3.4, 'Your house?', 11, '#d2483e')}</g>`); }
+  const sel = editing && layout.items.find((i) => i.id === selId);
+  if (sel) { const [a, b] = iso(sel.x, sel.z); tops.push(`<ellipse cx="${a}" cy="${b}" rx="30" ry="17" fill="#d2483e22" stroke="#d2483e" stroke-width="2.4" stroke-dasharray="6 4" pointer-events="none"/>`); }
+  svg.innerHTML = flat(-200, -180, 220, 200, '#e7d3a3', 'stroke="none"') + flat(-42, -36, 44, 52, '#dcc796', 'stroke="none"') + flats.map((f) => f.svg).join('') + items.map((i) => i.svg).join('') + tops.join('');
+  if (!VB) { const q = [[-37, -20], [37, -20], [-37, 13], [37, 13], [0, -17], [0, 36], [5, 35]].map(([x, z]) => iso(x, z).map(Number));
+    const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+    HOME = { x: Math.min(...xs) - 8, y: Math.min(...ys) - 70, w: Math.max(...xs) - Math.min(...xs) + 16, h: Math.max(...ys) - Math.min(...ys) + 80 };
+    if (svg.clientHeight > svg.clientWidth * 1.05) { const [cx, cy] = iso(4, -6).map(Number), w = HOME.w * 0.5; HOME = { x: cx - w / 2, y: cy - w * 0.5, w, h: w }; }
+    VB = contain(HOME); fit(); }
+  // header + newest citizens (only people who signed up with Google)
+  $('#pop').firstChild.nodeValue = layout.followers ? Number(layout.followers).toLocaleString('en-US') : '—';
+  const ids = cits.filter((c) => c.n > 92);
+  $('#popLine').textContent = `Every follower is a citizen. ${ids.length ? ids.length + (ids.length === 1 ? ' has' : ' have') + ' a Citizen ID on the map.' : 'Be the first to put your name on the map.'}`;
+  $('#next').textContent = 'Next free house: ' + address(nextN);
+  if (!editing && $('#joinStep').hidden === false && !mine) $('#joinPlot').textContent = `Your house will go up on ${address(nextN)}.`;
+  const named = ids.slice(-8).reverse();
+  $('#arrivals').innerHTML = named.length ? named.map((c) => `<li><button class="link" data-goto="${c.n}">${miniHouse(c.style)}<span><b>${esc(c.name)}</b><br><span>@${esc(c.handle)} · ${esc(c.day || CONFIG.DAY)}</span></span><span class="n">No. ${String(c.n).padStart(3, '0')}</span></button></li>`).join('')
+    : `<li><span>No Citizen IDs yet. Be the first to move in!</span></li>`;
+  if (editing) drawPanel();
+}
+const miniHouse = (st) => `<svg class="dot" viewBox="-14 -22 28 26" aria-hidden="true">${cottage(0, 0, st, 0.9)}</svg>`;
+const badge = (c, t) => `<svg class="dot" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="14" fill="${c}" stroke="${INK}" stroke-width="2.5"/><text x="17" y="23" text-anchor="middle" font-size="17" font-weight="800" fill="${INK}">${t}</text></svg>`;
+function contain(b) { const cw = svg.clientWidth || 1, ch = svg.clientHeight || 1, ar = ch / cw; let w = b.w, h = b.h; if (h / w < ar) h = w * ar; else w = h / ar; return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h }; }
+function fit() { svg.setAttribute('viewBox', `${VB.x} ${VB.y} ${VB.w} ${VB.h}`); }
+function zoomAt(f, px = 0.5, py = 0.5) { const w = Math.min(Math.max(VB.w * f, 90), HOME.w * 3.2), h = VB.h * (w / VB.w); VB.x += (VB.w - w) * px; VB.y += (VB.h - h) * py; VB.w = w; VB.h = h; fit(); }
+function flyTo(n) { const p = plotPos(slot(n)); const [a, b] = iso(p.x, p.z, 1); VB = contain({ x: a - 150, y: b - 100, w: 300, h: 200 }); fit(); }
+
+// pan / pinch / tap
+const ptrs = new Map(); let moved = 0, start = null;
+svg.addEventListener('pointerdown', (e) => { svg.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; start = e.target; svg.classList.add('drag'); $('#hint').style.opacity = 0;
+  dragId = null; const g = editing && ptrs.size === 1 && e.target.closest && e.target.closest('[data-item]'); if (g) { dragId = g.dataset.item; snap(); } });
+svg.addEventListener('pointermove', (e) => {
+  if (!ptrs.has(e.pointerId)) return; const prev = ptrs.get(e.pointerId); const k = VB.w / svg.clientWidth;
+  if (ptrs.size === 1 && dragId) { const it = layout.items.find((i) => i.id === dragId); const a = (e.clientX - prev[0]) * k / (0.866 * S), b = (e.clientY - prev[1]) * k / (0.5 * S);
+    it._x = (it._x ?? it.x) + (a + b) / 2; it._z = (it._z ?? it.z) + (b - a) / 2; it.x = Math.round(it._x * 2) / 2; it.z = Math.round(it._z * 2) / 2;
+    moved += Math.abs(e.clientX - prev[0]) + Math.abs(e.clientY - prev[1]); if (moved > 6) { selId = dragId; dirty = true; render(); } }
+  else if (ptrs.size === 1) { VB.x -= (e.clientX - prev[0]) * k; VB.y -= (e.clientY - prev[1]) * k; moved += Math.abs(e.clientX - prev[0]) + Math.abs(e.clientY - prev[1]); fit(); }
+  else { const o = [...ptrs.entries()].find(([id]) => id !== e.pointerId)[1]; const d0 = Math.hypot(prev[0] - o[0], prev[1] - o[1]), d1 = Math.hypot(e.clientX - o[0], e.clientY - o[1]); if (d0 > 0) { const r = svg.getBoundingClientRect(); zoomAt(d0 / d1, ((e.clientX + o[0]) / 2 - r.left) / r.width, ((e.clientY + o[1]) / 2 - r.top) / r.height); } moved += 99; }
+  ptrs.set(e.pointerId, [e.clientX, e.clientY]);
+});
+const up = (e) => { ptrs.delete(e.pointerId); if (!ptrs.size) svg.classList.remove('drag');
+  if (dragId) { const it = layout.items.find((i) => i.id === dragId); if (it) { delete it._x; delete it._z; } if (moved < 6) undoStack.pop(); }
+  if (moved < 6 && start) tap(start); start = null; dragId = null; };
+svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); start = null; });
+svg.addEventListener('wheel', (e) => { e.preventDefault(); const r = svg.getBoundingClientRect(); zoomAt(e.deltaY > 0 ? 1.12 : 0.89, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); }, { passive: false });
+$('#zin').onclick = () => zoomAt(0.8); $('#zout').onclick = () => zoomAt(1.25); $('#zhome').onclick = () => { VB = contain(HOME); fit(); };
+function tap(t) {
+  if (editing) { const g = t.closest && t.closest('[data-item]'); selId = g ? g.dataset.item : null; render(); return; }
+  const g = t.closest && t.closest('[data-n],[data-free],[data-item]'); if (!g) return;
+  if (g.dataset.free) return openJoin(); if (g.dataset.n) return showCitizen(+g.dataset.n); showItem(g.dataset.item);
+}
+
+// ======== dialogs ========
+function openV(id) { const v = $(id); v.classList.add('on'); const f = v.querySelector('input,button.btn,button.x'); f && f.focus(); }
+function closeV() { document.querySelectorAll('.veil.on').forEach((v) => v.classList.remove('on')); }
+document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = closeV));
+document.querySelectorAll('.veil').forEach((v) => v.addEventListener('click', (e) => { if (e.target === v) closeV(); }));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeV(); });
+function showCitizen(n) {
+  const c = allCitizens().find((x) => x.n === n); if (!c) return;
+  const title = c.founder ? `Founding citizen No. ${String(n).padStart(3, '0')}` : esc(c.name);
+  $('#cardBody').innerHTML = `<div class="who"><svg viewBox="-16 -26 32 30" aria-hidden="true">${cottage(0, 0, c.style, 1.1)}</svg><div><h2 id="ct">${title}</h2>${c.founder ? '<span style="color:var(--soft)">Moved in before sign-ups opened</span>' : `<span style="color:var(--soft);font-weight:800">@${esc(c.handle)}</span>`}</div></div>
+    <dl class="facts"><dt>Citizen</dt><dd>No. ${String(n).padStart(3, '0')}</dd><dt>Address</dt><dd>${address(n)}</dd><dt>Moved in</dt><dd>${esc(c.day || CONFIG.DAY)}</dd>${c.from ? `<dt>Follows on</dt><dd>${esc(c.from)}</dd>` : ''}</dl>${c.msg ? `<div class="quote">“${esc(c.msg)}”</div>` : ''}`;
+  openV('#veilCard');
+}
+function showItem(id) {
+  const it = layout.items.find((i) => i.id === id); if (!it || ['road', 'tree', 'square', 'block', 'pond'].includes(it.type) && !it.label && !it.note) return;
+  const title = nameOf(it) || TYPES[it.type];
+  $('#cardBody').innerHTML = `<h2 id="ct">${esc(title)}</h2>${it.by ? `<p>Requested by <b>@${esc(it.by)}</b>.</p>` : ''}${it.note ? `<p>${esc(it.note)}</p>` : ''}${!it.by && !it.note ? '<p>Part of City of Zero.</p>' : ''}`;
+  openV('#veilCard');
+}
+
+// ======== mayor mode: drag, add, edit, hide, delete, save ========
+$('#addSel').innerHTML = '<option value="">+ Add to map…</option>' + Object.entries(TYPES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+function snap() { undoStack.push(JSON.stringify(layout)); if (undoStack.length > 60) undoStack.shift(); }
+function setEditing(on) {
+  editing = on; selId = null; exitArmed = false; $('#map').classList.toggle('editing', on); $('#mbar').hidden = !on; $('#panel').hidden = true;
+  $('#folIn').value = layout.followers || ''; $('#saveMsg').textContent = 'Drag anything to move it. Tap it to edit.'; updateMe(); render();
+}
+$('#mayorBtn').onclick = () => { undoStack = []; dirty = false; setEditing(true); };
+$('#doneBtn').onclick = () => {
+  if (dirty && !exitArmed) { exitArmed = true; $('#saveMsg').textContent = 'You have unsaved changes. Press Save, or Exit again to throw them away.'; return; }
+  if (dirty) layout = clone(published); dirty = false; setEditing(false);
+};
+$('#undoBtn').onclick = () => { const s = undoStack.pop(); if (!s) return; layout = JSON.parse(s); dirty = true; render(); };
+$('#folIn').oninput = () => { layout.followers = Math.max(0, parseInt($('#folIn').value, 10) || 0); dirty = true; render(); };
+$('#saveBtn').onclick = async () => { $('#saveMsg').textContent = 'Saving…'; const r = await saveLayout(); if (r.ok) { dirty = false; exitArmed = false; } $('#saveMsg').textContent = r.ok ? 'Saved. Everyone sees the new map now.' : r.error; };
+function viewCenter() { const sx = VB.x + VB.w / 2, sy = VB.y + VB.h / 2, a = sx / (0.866 * S), b = sy / (0.5 * S); return { x: Math.round(a + b) / 2, z: Math.round(b - a) / 2 }; }
+$('#addSel').onchange = () => {
+  const type = $('#addSel').value; $('#addSel').value = ''; if (!type) return; snap();
+  const c = viewCenter(), it = { id: type[0] + Date.now().toString(36), type, x: c.x, z: c.z };
+  if (type === 'building') Object.assign(it, { label: 'New building', size: 'm', wall: '#f3e2a6', roof: '#c2574a' });
+  if (type === 'road') Object.assign(it, { len: 20, dir: 'x' });
+  if (type === 'block') { it.b = Math.max(0, ...layout.items.filter((i) => i.type === 'block').map((i) => +i.b)) + 1; it.dx = 1; it.dz = 1; }
+  layout.items.push(it); selId = it.id; dirty = true; render();
+};
+const fld = (f, lab, v, extra = '') => `<label>${lab}<input data-f="${f}" value="${esc(v ?? '')}" ${extra}></label>`;
+function drawPanel() {
+  const it = layout.items.find((i) => i.id === selId), pn = $('#panel'); if (!it) { pn.hidden = true; return; }
+  if (pn.contains(document.activeElement) && pn.dataset.id === it.id) return;   // don't redraw under the cursor
+  pn.dataset.id = it.id; pn.hidden = false;
+  const cits = allCitizens(), held = it.type === 'block' ? cits.filter((c) => slot(c.n).b === +it.b).length : 0;
+  let h = `<h3>${esc(TYPES[it.type] || it.type)}${it.type === 'block' ? ' ' + it.b : ''}</h3>`;
+  if (!['tree', 'road'].includes(it.type)) h += fld('label', it.type === 'block' ? 'Street name' : 'Name on the map', it.label ?? (it.type === 'block' ? STREETS[it.b] : NAMES[it.type] || ''), 'maxlength="28"');
+  if (!['tree', 'road', 'block', 'square', 'pond'].includes(it.type)) h += fld('by', 'Requested by (@handle)', it.by, 'maxlength="31" autocapitalize="off"') + fld('note', 'Note when tapped', it.note, 'maxlength="120"');
+  if (it.type === 'building') h += `<div class="two"><label>Size<select data-f="size">${['s', 'm', 'l'].map((z) => `<option value="${z}" ${it.size === z ? 'selected' : ''}>${{ s: 'Small', m: 'Medium', l: 'Large' }[z]}</option>`).join('')}</select></label><label>Turn<button class="btn ghost" type="button" data-act="rot">↻</button></label></div><div class="two"><label>Walls<input type="color" data-f="wall" value="${it.wall || '#f3e2a6'}"></label><label>Roof<input type="color" data-f="roof" value="${it.roof || '#c2574a'}"></label></div>`;
+  if (it.type === 'road') h += `<label>Length: ${it.len} m<input type="range" min="6" max="90" step="1" data-f="len" value="${it.len}"></label><div class="two"><button class="btn ghost" type="button" data-act="dir">Turn ↻</button><label class="ck"><input type="checkbox" data-f="dirt" ${it.dirt ? 'checked' : ''}> Dirt road</label></div>`;
+  if (it.type === 'tree') h += `<label>Size<input type="range" min="0.5" max="1.6" step="0.1" data-f="r" value="${it.r || 0.85}"></label>`;
+  if (it.type === 'pond') h += `<label>Size<input type="range" min="1.5" max="8" step="0.5" data-f="r" value="${it.r || 2.6}"></label>`;
+  if (it.type === 'block') h += `<button class="btn ghost" type="button" data-act="turn">Turn the block ↻</button><small>${held} citizens live here. Their houses move with the block.</small>`;
+  h += `<label class="ck"><input type="checkbox" data-f="hidden" ${it.hidden ? 'checked' : ''}> Hidden from visitors (for later in the story)</label>`;
+  h += `<div class="two"><button class="btn ghost" type="button" data-act="close">Done</button><button class="btn red" type="button" data-act="del">Delete</button></div>`;
+  pn.innerHTML = h;
+}
+$('#panel').addEventListener('focusin', (e) => { if (e.target.dataset.f) snap(); });
+$('#panel').addEventListener('input', (e) => {
+  const f = e.target.dataset.f; const it = layout.items.find((i) => i.id === selId); if (!f || !it) return;
+  let v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+  if (['len', 'r'].includes(f)) v = +v; if (f === 'by') v = String(v).replace(/^@+/, '');
+  if (v === '' && ['label', 'by', 'note'].includes(f)) delete it[f]; else it[f] = v;
+  dirty = true; if (e.target.type === 'checkbox' || e.target.tagName === 'SELECT') { snap(); $('#panel').dataset.id = ''; }
+  if (f === 'len') e.target.previousSibling.nodeValue = `Length: ${v} m`;
+  render();
+});
+$('#panel').addEventListener('click', (e) => {
+  const act = e.target.dataset.act; const it = layout.items.find((i) => i.id === selId); if (!act || !it) return;
+  if (act === 'close') { selId = null; $('#panel').hidden = true; return render(); }
+  snap(); dirty = true;
+  if (act === 'rot') it.rot = !it.rot;
+  if (act === 'dir') it.dir = it.dir === 'z' ? 'x' : 'z';
+  if (act === 'turn') { const o = [[1, 1], [1, -1], [-1, -1], [-1, 1]], i = o.findIndex(([a, b]) => a === it.dx && b === it.dz); [it.dx, it.dz] = o[(i + 1) % 4]; }
+  if (act === 'del') {
+    if (it.type === 'block' && allCitizens().some((c) => slot(c.n).b === +it.b)) { undoStack.pop(); return ($('#saveMsg').textContent = 'People live on this block. Move it instead, or hide it.'); }
+    layout.items = layout.items.filter((i) => i !== it); selId = null; $('#panel').hidden = true;
+  }
+  $('#panel').dataset.id = ''; render();
+});
+
+// sign in -> make or show your Citizen ID
+let style = 0, editingId = false;
+$('#sw').innerHTML = STYLES.map((s, i) => `<button type="button" data-st="${i}" aria-label="House colour ${i + 1}" aria-pressed="${i === 0}"><svg viewBox="-12 -20 24 22">${cottage(0, 0, i, 0.85)}</svg></button>`).join('');
+const pickStyle = (i) => { style = i; $('#sw').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', +x.dataset.st === i)); };
+$('#sw').onclick = (e) => { const b = e.target.closest('[data-st]'); if (b) pickStyle(+b.dataset.st); };
+const inApp = /Instagram|FBAN|FBAV|FB_IAB|TikTok|musical_ly|Bytedance|Line\//i.test(navigator.userAgent);
+function step(id) { ['#loginStep', '#joinStep', '#passStep'].forEach((s) => ($(s).hidden = s !== id)); }
+async function openJoin() {
+  $('#joinErr').textContent = ''; $('#loginErr').textContent = '';
+  if (!user) { $('#iab').hidden = !inApp; $('#loginNote').textContent = FB ? 'By signing in you agree to the town rules: be kind, one ID per person.' : 'Preview: on your live site this is the real Google sign-in.'; step('#loginStep'); }
+  else if (mine) { await showMyId(); step('#passStep'); }
+  else { editingId = false; formMode(); if (!$('#fName').value) $('#fName').value = (user.name || '').split(' ')[0].slice(0, 24); step('#joinStep'); }
+  if (!$('#veilJoin').classList.contains('on')) openV('#veilJoin');
+}
+function formMode() {
+  $('#joinTitle').textContent = editingId ? 'Edit your Citizen ID' : 'Make your Citizen ID';
+  $('#handleRow').hidden = $('#fromRow').hidden = $('#followRow').hidden = editingId;
+  $('#joinBtn').textContent = editingId ? 'Save changes' : 'Move in';
+  const nextN = Math.max(...allCitizens().map((x) => x.n)) + 1;
+  $('#joinPlot').textContent = editingId ? `Your house: ${address(mine.n)}.` : `Your house will go up on ${address(nextN)}.`;
+}
+$('#move').onclick = openJoin; $('#meBtn').onclick = openJoin;
+document.querySelectorAll('[data-signout]').forEach((b) => (b.onclick = signOut));
+$('#gSign').onclick = async () => { $('#loginErr').textContent = ''; try { await signIn(); if (!FB) openJoin(); } catch (e) { $('#loginErr').textContent = e.message; } };
+$('#copySite').onclick = async () => { try { await navigator.clipboard.writeText(location.href.split('#')[0]); $('#copySite').textContent = 'Copied! Paste it in Chrome or Safari'; } catch (e) { $('#copySite').textContent = location.href.split('#')[0]; } };
+$('#editMe').onclick = () => { editingId = true; $('#fName').value = mine.name || ''; $('#fMsg').value = mine.msg || ''; pickStyle(+mine.style || 0); formMode(); step('#joinStep'); };
+$('#joinForm').onsubmit = async (e) => {
+  e.preventDefault(); const err = $('#joinErr'); err.textContent = '';
+  const name = $('#fName').value.trim(), msg = $('#fMsg').value.trim();
+  if (!name) return (err.textContent = 'Pick a display name for the map.');
+  if (BAD.test(name + msg)) return (err.textContent = 'Let’s keep City of Zero friendly. Try other words.');
+  const btn = $('#joinBtn'); btn.disabled = true;
+  let res;
+  if (editingId) { btn.textContent = 'Saving…'; res = await updateMine({ name, style, msg }); }
+  else {
+    const handle = $('#fHandle').value.trim().replace(/^@+/, '').toLowerCase();
+    if (!/^[a-z0-9._]{2,30}$/.test(handle)) { btn.disabled = false; return (err.textContent = 'Your handle can use letters, numbers, dots and underscores.'); }
+    if (BAD.test(handle)) { btn.disabled = false; return (err.textContent = 'Let’s keep City of Zero friendly. Try other words.'); }
+    if (!$('#fFollow').checked) { btn.disabled = false; return (err.textContent = 'Follow City of Zero first, then tick the box.'); }
+    btn.textContent = 'Building your house…';
+    res = await join({ name, handle, from: $('#fFrom').value, style, msg });
+  }
+  btn.disabled = false; formMode();
+  if (!res.ok) return (err.textContent = res.error || 'Something went wrong.');
+  focusN = +mine.n; render(); flyTo(focusN); updateMe();
+  await showMyId(); step('#passStep');
+};
+async function showMyId() {
+  focusN = +mine.n;
+  $('#passTxt').textContent = `You are citizen No. ${String(mine.n).padStart(3, '0')}. Your house is on ${address(mine.n)}.`;
+  $('#passMsg').textContent = ''; await drawPassport(mine);
+}
+$('#seeHouse').onclick = () => { closeV(); render(); flyTo(focusN); };
+$('#copyLink').onclick = async () => { const u = location.href.split('#')[0] + '#citizen-' + focusN; try { await navigator.clipboard.writeText(u); $('#passMsg').textContent = 'Link copied. Send it to a friend!'; } catch (x) { $('#passMsg').textContent = u; } };
+$('#dl').onclick = () => { const c = $('#passport'); try { c.toBlob((b) => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `city-of-zero-id-${focusN}.png`; document.body.appendChild(a); a.click(); a.remove(); }); $('#passMsg').textContent = 'If nothing downloaded, press and hold your ID (or right-click it) to save it. Share it in your story and tag City of Zero!'; } catch (x) { $('#passMsg').textContent = 'Press and hold your ID to save it.'; } };
+
+// passport (1080 x 1500, story friendly)
+async function drawPassport(c) {
+  try { await document.fonts.ready; } catch (e) {}
+  const cv = $('#passport'), g = cv.getContext('2d'), W = 1080, H = 1500, F = (w, s) => `${w} ${s}px "Baloo 2", Nunito, sans-serif`;
+  g.fillStyle = '#1f5a6e'; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 40; i++) { g.fillStyle = i % 2 ? '#22647a' : '#1f5a6e'; g.fillRect(0, i * 40, W, 20); }
+  const R = (x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+  g.fillStyle = '#133b49'; R(70, 96, W - 140, H - 170, 48); g.fill();
+  g.fillStyle = '#f4ead5'; g.strokeStyle = INK; g.lineWidth = 10; R(70, 80, W - 140, H - 170, 48); g.fill(); g.stroke();
+  g.fillStyle = '#2f6f86'; R(70, 80, W - 140, 200, 48); g.fill(); g.fillRect(70, 230, W - 140, 50); g.lineWidth = 10; R(70, 80, W - 140, H - 170, 48); g.stroke();
+  g.textAlign = 'center'; g.fillStyle = '#f2c46a'; g.font = F(800, 92); g.fillText('CITY OF ZERO', W / 2, 190);
+  g.fillStyle = '#f4ead5'; g.font = F(700, 40); g.fillText('CITIZEN ID', W / 2, 250);
+  // house picture
+  const img = new Image(); const hs = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-16 -26 32 30" width="420" height="394">${cottage(0, 0, c.style, 1.1)}</svg>`;
+  await new Promise((ok) => { img.onload = ok; img.onerror = ok; img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(hs); });
+  g.fillStyle = '#a7d07a'; g.beginPath(); g.ellipse(W / 2, 700, 300, 90, 0, 0, Math.PI * 2); g.fill(); g.lineWidth = 6; g.stroke();
+  try { g.drawImage(img, W / 2 - 230, 330, 460, 431); } catch (e) {}
+  g.fillStyle = INK; g.font = F(800, 96); g.fillText(c.name.slice(0, 18), W / 2, 900);
+  g.fillStyle = '#2f6f86'; g.font = F(700, 50); g.fillText('@' + c.handle, W / 2, 965);
+  g.textAlign = 'left'; const rows = [['CITIZEN ID NO.', String(c.n).padStart(3, '0')], ['ADDRESS', address(c.n)], ['MOVED IN', (c.day || CONFIG.DAY)]];
+  rows.forEach(([k, v], i) => { const y = 1060 + i * 92; g.fillStyle = '#8a6a54'; g.font = F(700, 30); g.fillText(k, 140, y); g.fillStyle = INK; g.font = F(800, v.length > 30 ? 34 : 44); g.fillText(v, 140, y + 46); });
+  // stamp
+  g.save(); g.translate(820, 1240); g.rotate(-0.25); g.strokeStyle = '#d2483e'; g.fillStyle = '#d2483e'; g.lineWidth = 8;
+  g.beginPath(); g.arc(0, 0, 118, 0, Math.PI * 2); g.stroke(); g.beginPath(); g.arc(0, 0, 96, 0, Math.PI * 2); g.lineWidth = 4; g.stroke();
+  g.textAlign = 'center'; g.font = F(800, 36); g.fillText('WELCOME', 0, -6); g.font = F(800, 36); g.fillText('HOME', 0, 34); g.restore();
+  g.textAlign = 'left'; g.fillStyle = INK; g.font = 'italic 700 46px Nunito, sans-serif'; g.fillText('The Mayor', 140, 1360); g.lineWidth = 3; g.beginPath(); g.moveTo(140, 1374); g.lineTo(460, 1374); g.stroke();
+}
+
+// search + links
+$('#find').onsubmit = (e) => { e.preventDefault(); const q = $('#q').value.trim().replace(/^@+/, '').toLowerCase(); if (!q) return; const c = allCitizens().find((x) => x.handle && (x.handle.toLowerCase().includes(q) || String(x.name).toLowerCase().includes(q))) || (/^\d+$/.test(q) && allCitizens().find((x) => x.n === +q));
+  if (!c) { $('#q').value = ''; $('#q').placeholder = 'Not in town yet. Invite them!'; return; } focusN = c.n; render(); flyTo(c.n); showCitizen(c.n); };
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-goto]'); if (!b) return; focusN = +b.dataset.goto; render(); $('#map').scrollIntoView({ behavior: 'smooth', block: 'center' }); flyTo(focusN); });
+function fromHash() { const m = location.hash.match(/^#citizen-(\d+)$/); if (m) { focusN = +m[1]; render(); flyTo(focusN); showCitizen(focusN); } }
+window.addEventListener('hashchange', () => { if (!FB) { isAdmin = location.hash === '#mayor'; updateMe(); } fromHash(); });
+
+initBackend().then(fromHash);
+new ResizeObserver(() => { if (VB) { VB = contain(VB); fit(); } }).observe(svg);
+setTimeout(() => ($('#hint').style.opacity = 0), 5000);
+}
+</script>
+</body>
+</html>
