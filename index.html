@@ -361,7 +361,7 @@ function houses() {         // every house on the map: Instagram followers (no n
 function nextPlot() { const cs = citizens(), taken = new Set(cs.map((c) => c.plot)); let p = Math.max(followers() + cs.length, ...cs.map((c) => c.plot), 0) + 1; while (taken.has(p)) p++; return p; }
 const netizens = () => followers() + citizens().length;
 const demo = {
-  load() { live.citizens = store.get('coz-demo') || live.citizens; const l = store.get('coz-layout'); if (l) { layout = l; published = clone(l); bulletin = l.bulletin || null; } const s = store.get('coz-stats'); if (s) stats = s;
+  load() { live.citizens = store.get('coz-demo') || live.citizens; const l = store.get('coz-layout'); if (l && l.plan === PLAN) { layout = l; published = clone(l); bulletin = l.bulletin || null; } const s = store.get('coz-stats'); if (s) stats = s;
     user = store.get('coz-user'); isAdmin = location.hash === '#mayor'; mine = user && live.citizens.find((c) => c.uid === user.uid) || null; onlineCount = 1; demo.online(); },
   save() { store.set('coz-demo', live.citizens); store.set('coz-user', user); demo.online(); },
   online() { onlineMap = mine ? { [mine.uid]: { n: mine.n, name: mine.name, handle: mine.handle, style: mine.style, hat: mine.hat, plot: mine.plot } } : {}; },
@@ -382,7 +382,7 @@ async function initBackend() {
     if (user) mine = live.citizens.find((c) => c.uid === user.uid) || mine;
     render(); updateMe();
   }, (e) => console.error(e));
-  F.onSnapshot(F.doc(db, 'town', 'layout'), (d) => { if (!d.exists()) return; const v = d.data(); published = { items: v.items || [], bulletin: v.bulletin || null }; bulletin = published.bulletin; if (!editing) { layout = clone(published); render(); } else $('#saveMsg').textContent = 'Someone saved a newer map while you were editing.'; }, (e) => console.error(e));
+  F.onSnapshot(F.doc(db, 'town', 'layout'), (d) => { if (!d.exists()) return; const v = d.data(); published = { items: v.plan === PLAN ? v.items || [] : clone(DEFAULT_LAYOUT.items), bulletin: v.bulletin || null }; bulletin = published.bulletin; if (!editing) { layout = clone(published); render(); } else $('#saveMsg').textContent = 'Someone saved a newer map while you were editing.'; }, (e) => console.error(e));
   F.onSnapshot(F.doc(db, 'town', 'stats'), (d) => { if (!d.exists()) return; const v = d.data(); stats = { followers: v.followers || 0, updated: v.updated ? v.updated.toDate() : null, source: v.source || 'manual' }; if (editing) $('#folIn').value = stats.followers; render(); }, (e) => console.error(e));
   if (rdb) {   // who is online right now (Realtime Database, removed automatically when the tab closes)
     const me = R.push(R.ref(rdb, 'visitors')); R.onDisconnect(me).remove(); R.set(me, { t: R.serverTimestamp() });
@@ -454,7 +454,7 @@ async function updateMine(ch) {
   catch (e) { return { ok: false, error: 'Could not save. Check your display name.' }; }
 }
 async function saveLayout() {
-  const data = { items: layout.items, bulletin: bulletin || null }, f = followers();
+  const data = { plan: PLAN, items: layout.items, bulletin: bulletin || null }, f = followers();
   if (!FB) { store.set('coz-layout', data); store.set('coz-stats', { ...stats, updated: new Date().toISOString(), source: 'manual' }); published = clone(data); return { ok: true }; }
   try {
     await FB.F.setDoc(FB.F.doc(FB.db, 'town', 'layout'), { ...data, updated: FB.F.serverTimestamp() });
@@ -515,25 +515,58 @@ const TYPES = {
   building: 'New building', tree: 'Tree', park: 'Park', pond: 'Pond', road: 'Road', block: 'House block (50 plots)',
   hall: 'City Hall', square: 'Town square', hospital: 'Hospital', restaurant: 'Restaurant', sweets: 'Sweets store', sign: 'Town sign',
   rice: 'Rice paddy', wheat: 'Wheat field', orchard: 'Orchard', barn: 'Barn', gate: 'Farm gate',
+  plot: 'Empty plot', zone: 'Reserved zone', circle: 'Round square', droad: 'Diagonal road', river: 'River',
 };
 const NAMES = { hall: 'City Hall', hospital: 'Hospital', restaurant: 'Restaurant', sweets: 'Sweets', rice: 'Rice paddy', wheat: 'Wheat field', orchard: 'Orchard', gate: 'Farms', barn: 'Barn', square: 'Town square' };
-const DEFAULT_LAYOUT = { followers: 92, items: [
-  { id: 'b1', type: 'block', b: 1, x: -11.3, z: -8.0, dx: -1, dz: -1 }, { id: 'b2', type: 'block', b: 2, x: 11.3, z: -8.0, dx: 1, dz: -1 },
-  { id: 'b3', type: 'block', b: 3, x: -11.3, z: 0.2, dx: -1, dz: 1 }, { id: 'b4', type: 'block', b: 4, x: 22.0, z: 1.2, dx: 1, dz: 1, hidden: true },
-  { id: 'b5', type: 'block', b: 5, x: -11.3, z: 16.4, dx: -1, dz: 1, hidden: true },
-  { id: 'r1', type: 'road', x: -35.5, z: -4, len: 53, dir: 'x' }, { id: 'r2', type: 'road', x: 36.5, z: -4, len: 55, dir: 'x' },
-  { id: 'r3', type: 'road', x: 0, z: 29, len: 46, dir: 'z' }, { id: 'r4', type: 'road', x: 65, z: -4, len: 42, dir: 'x', dirt: true },
-  { id: 'sq', type: 'square', x: 0, z: -4 }, { id: 'hall', type: 'hall', x: 0, z: -11.4, note: "The mayor's office, in the middle of the town square park." },
-  { id: 'hosp', type: 'hospital', x: 15.2, z: 3.5, by: 'lullbabyleann' }, { id: 'rest', type: 'restaurant', x: 15, z: 12.6, by: 'jannat_who_else0801', note: 'Free dining all week.' },
-  { id: 'sweet', type: 'sweets', x: -6.2, z: 31.4, by: 'bullockcian', note: 'Every new citizen gets a free pastry or candy.' }, { id: 'sign', type: 'sign', x: 3.7, z: 33 },
-  { id: 'rice', type: 'rice', x: 54, z: -15, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'wheat', type: 'wheat', x: 54, z: 7.25, by: 's.a.m.i.r.a_s.a.r.k.e.r' },
-  { id: 'orch', type: 'orchard', x: 72.6, z: -3, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'barn', type: 'barn', x: 60.5, z: 17.5 },
-  { id: 'gate', type: 'gate', x: 43.5, z: -4, note: 'Farmers wanted!' },
-  ...[[-6.5, 40], [-7.2, 44], [6.6, 26], [7.8, 30], [8, 38], [-44, -14], [-40, 6], [40, 22], [42, -32], [-46, -34], [20, 30], [26, 26], [-26, 32], [36, 34]].map(([x, z], i) => ({ id: 't' + i, type: 'tree', x, z, r: 0.8 + (i % 3) * 0.1 })),
-] };
+const PLAN = 'zero-mile-1';   // the Zero Mile Plan (Michigan-style grid); an older saved map is ignored until the mayor saves this one
+const DEFAULT_LAYOUT = (() => {
+  const I = [], MILE = (n) => (n ? -34 - 20 * (n - 1) : 0), WC = [-158, -126, -94, -62], EC = [36, 68, 100, 132], AIR = [68, 100, 132];
+  const R = (id, x, z, len, dir, label, more) => I.push({ id, type: 'road', x, z, len, dir, label, ...more });
+  R('zave', 0, -97, 186, 'z', 'Zero Ave', { lz: -62 }); R('zave2', 0, 15, 10, 'z');
+  for (let n = 1; n <= 7; n++) R('m' + n, 0, MILE(n), 336, 'x', n === 7 ? '7 Mile Rd · City Limit' : n + ' Mile Rd', { lx: -112 });
+  R('m0', 0, 0, 336, 'x', '0 Mile Rd · Michigan Ave', { lx: -84 }); R('rf', 0, 20, 336, 'x', 'Riverfront Ave', { lx: 84 });
+  for (const sx of [-129, -97, -65, -33, 33, 65, 97, 129]) R('s' + sx, sx, -94, 120, 'z');
+  I.push({ id: 'dnw', type: 'droad', x: -17, z: -17, ex: -17, ez: -17, label: 'Founders Ave' }, { id: 'dne', type: 'droad', x: 17, z: -17, ex: 17, ez: -17, label: "Mayor's Ave" });
+  const old = { '-94,1': 1, '-62,1': 2, '36,1': 3, '68,1': 4, '-94,2': 5, '-62,2': 6, '36,2': 7, '68,2': 8 }; let bn = 8;
+  for (let b = 1; b <= 6; b++) for (const c of [...WC, ...EC]) {
+    if (AIR.includes(c) && (b === 4 || b === 5)) continue;
+    const n = old[c + ',' + b] || ++bn;
+    I.push({ id: 'b' + n, type: 'block', b: n, x: c + 1.3, z: MILE(b + 1) + 4.5, dx: 1, dz: 1, label: b + ' Mile Rd' });
+  }
+  const PL = (n, x, z, w, d) => I.push({ id: 'p' + n, type: 'plot', n, x, z, w, d }), BC = (b) => MILE(b) - 10.3;
+  PL(1, -6, -14, 5, 5); PL(2, 6, -14, 5, 5); PL(3, -20, -7, 6, 6); PL(4, 20, -7, 6, 6); PL(5, 34, -9, 8, 7); PL(6, 46, -9, 8, 7);
+  PL(7, -17, BC(1), 26, 13); PL(8, 17, BC(1), 26, 13); PL(9, -17, BC(2), 26, 13); PL(10, 17, BC(2), 26, 13);
+  [-46, -32, -18, 18, 32, 46].forEach((x, i) => PL(11 + i, x, 10, 10, 8));
+  PL(17, 60, -182, 90, 16);
+  let pn = 17; for (let b = 3; b <= 6; b++) { PL(++pn, -17, BC(b), 26, 13); PL(++pn, 17, BC(b), 26, 13); }
+  PL(26, -72, -24, 14, 10); PL(27, -96, -24, 14, 10); PL(28, 72, -24, 14, 10); PL(29, 96, -24, 14, 10); PL(30, 84, -9, 36, 8); PL(31, 72, 10, 14, 8); PL(32, 96, 10, 14, 8);
+  I.push(
+    { id: 'circ', type: 'circle', x: 0, z: 0, r: 10 },
+    { id: 'hall', type: 'hall', x: 0, z: 0, note: "The mayor's office, in the middle of the town square park. 0 Mile starts here." },
+    { id: 'office', type: 'building', x: -8, z: -24, size: 'm', label: 'Public Admin Office', wall: '#cfe0d4', roof: '#2f6f86', note: 'Get your Citizen ID here.' },
+    { id: 'police', type: 'building', x: 8, z: -24, size: 'm', label: 'Police Station', wall: '#dcd8ee', roof: '#34508a' },
+    { id: 'mall', type: 'building', x: -44, z: -24, size: 'xl', label: 'City of Zero Mall', wall: '#f6e0b5', roof: '#c2413a', note: 'Four floors of shops, snacks and a cinema.' },
+    { id: 'hosp', type: 'hospital', x: 44, z: -24, by: 'lullbabyleann' },
+    { id: 'rest', type: 'restaurant', x: -46, z: -9, by: 'jannat_who_else0801', note: 'Free dining all week.' },
+    { id: 'sweet', type: 'sweets', x: -34, z: -9, by: 'bullockcian', note: 'Every new citizen gets a free pastry or candy.' },
+    { id: 'sign', type: 'sign', x: 4, z: -29 },
+    { id: 'check', type: 'building', x: 6, z: -178, size: 's', label: 'Border Checkpoint', wall: '#e8dcc0', roof: '#351f22' },
+    { id: 'rice', type: 'rice', x: -60, z: -182, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'wheat', type: 'wheat', x: -40, z: -182, by: 's.a.m.i.r.a_s.a.r.k.e.r' },
+    { id: 'orch', type: 'orchard', x: -22, z: -182, by: 's.a.m.i.r.a_s.a.r.k.e.r' }, { id: 'barn', type: 'barn', x: -80, z: -180 },
+    { id: 'gate', type: 'gate', x: -96, z: -182, note: 'Farmers wanted!' },
+    { id: 'river', type: 'river', x: 0, z: 30, w: 360, d: 16, label: 'Zero River' },
+    { id: 'toll1', type: 'zone', kind: 'toll', x: 0, z: -163, w: 344, d: 6, label: 'Future Zero Toll Road' },
+    { id: 'toll2', type: 'zone', kind: 'toll', x: 167, z: -71, w: 10, d: 184, label: 'Future Toll Road' },
+    { id: 'rail', type: 'zone', kind: 'rail', x: -167, z: -96, w: 10, d: 202, label: 'Future Railway' },
+    { id: 'station', type: 'zone', kind: 'station', x: -140, z: -9, w: 36, d: 10, label: 'Future Central Station' },
+    { id: 'port', type: 'zone', kind: 'port', x: -130, z: 11, w: 56, d: 16, label: 'Future Port' },
+    { id: 'airport', type: 'zone', kind: 'airport', x: 114, z: -114, w: 94, d: 34, label: 'Future Airport' },
+  );
+  return { plan: PLAN, items: I };
+})();
 const clone = (o) => JSON.parse(JSON.stringify(o));
 let layout = clone(DEFAULT_LAYOUT), published = clone(DEFAULT_LAYOUT);
-const SIZES = { s: [2.6, 2.4, 1.8], m: [3.6, 3.2, 2.6], l: [5, 4.4, 3.4] };
+const SIZES = { s: [2.6, 2.4, 1.8], m: [3.6, 3.2, 2.6], l: [5, 4.4, 3.4], xl: [9, 6, 4.6] };
 function gable(x, z, w, d, h, wall, roof) {
   const x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2, rh = Math.min(w, d) * 0.45, o = 0.2;
   return box(x, z, w, d, h, wall) + poly([[x0, z0 - o, h], [x1, z0 - o, h], [x1, z, h + rh], [x0, z, h + rh]], shade(roof, 0.75)) +
@@ -547,7 +580,7 @@ const DRAW = {
   road(it) { const L = it.len || 20, c = it.dirt ? '#b78c60' : '#8f877c'; let f;
     if (it.dir === 'z') { f = flat(it.x - 1.6, it.z - L / 2, it.x + 1.6, it.z + L / 2, c); if (!it.dirt) for (let z = it.z - L / 2 + 1; z < it.z + L / 2 - 2; z += 4) f += flat(it.x - 0.1, z, it.x + 0.1, z + 2, '#f2e6c4', 'stroke="none"'); }
     else { f = flat(it.x - L / 2, it.z - 1.6, it.x + L / 2, it.z + 1.6, c); if (!it.dirt) for (let x = it.x - L / 2 + 1; x < it.x + L / 2 - 2; x += 4) f += flat(x, it.z - 0.1, x + 2, it.z + 0.1, '#f2e6c4', 'stroke="none"'); }
-    return { flat: f }; },
+    return { flat: f, top: it.label ? label(it.dir === 'z' ? it.x : it.lx ?? it.x, it.dir === 'z' ? it.lz ?? it.z : it.z, 0.3, it.label, 10, '#4a3f38') : '' }; },
   square(it) { const { x, z } = it; const [fx, fy] = iso(x, z + 3);
     return { flat: flat(x - 9, z - 10, x + 9, z + 10, '#e2cfab') + flat(x - 7, z - 1.8, x + 7, z + 7.8, '#9cc96b') + flat(x - 7, z + 2.35, x + 7, z + 3.65, '#efe3c6', 'stroke-width=".6"') + flat(x - 0.65, z - 1.8, x + 0.65, z + 7.8, '#efe3c6', 'stroke-width=".6"') +
       `<ellipse cx="${fx}" cy="${fy}" rx="14" ry="8" fill="#c9bba6" stroke="${INK}"/><ellipse cx="${fx}" cy="${fy - 1}" rx="11" ry="6" fill="#8fc6d6"/><circle cx="${fx}" cy="${fy - 9}" r="3" fill="#d9f0f6" stroke="${INK}"/>`,
@@ -572,6 +605,24 @@ const DRAW = {
     return { solid: sol, top: label(it.x, it.z + 10.4, 0.2, nameOf(it), 11) }; },
   barn(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z, 4.2, 5, 3, '#b5402f') + poly([[x - 2.1, z - 2.5, 3], [x + 2.1, z - 2.5, 3], [x + 2.1, z + 2.5, 3], [x - 2.1, z + 2.5, 3]], '#5b4a44') + (it.label ? label(x, z + 2.8, 3.8, it.label, 11) : '') }] }; },
   gate(it) { const { x, z } = it; return { solid: [{ k: x + z, svg: box(x, z - 2.9, 0.4, 0.4, 3.6, '#7a4a2c') + box(x, z + 2.9, 0.4, 0.4, 3.6, '#7a4a2c') + poly([[x, z - 3.2, 3.3], [x, z + 3.2, 3.3], [x, z + 3.2, 3.9], [x, z - 3.2, 3.9]], '#7a4a2c') + label(x, z, 4.6, nameOf(it), 10) }] }; },
+  circle(it) { const { x, z } = it, r = it.r || 10;
+    return { flat: circ(x, z, r, '#9cc96b') + circ(x, z, r * 0.62, '#e2cfab', 'stroke-width=".6"'),
+      solid: [0, 1, 2, 3, 4, 5].map((i) => { const a = i * 1.047 + 0.52, tx = x + Math.cos(a) * r * 0.8, tz = z + Math.sin(a) * r * 0.8; return { k: tx + tz, svg: tree(tx, tz, 0.7) }; }) }; },
+  droad(it) { const { x, z } = it, ex = it.ex ?? 10, ez = it.ez ?? -10, L = Math.hypot(ex, ez) || 1, nx = (-ez / L) * 1.6, nz = (ex / L) * 1.6;
+    return { flat: poly([[x - ex + nx, z - ez + nz], [x + ex + nx, z + ez + nz], [x + ex - nx, z + ez - nz], [x - ex - nx, z - ez - nz]], '#8f877c'), top: it.label ? label(x + ex * 0.35, z + ez * 0.35, 0.3, it.label, 10, '#4a3f38') : '' }; },
+  plot(it) { const { x, z } = it, w = it.w || 6, d = it.d || 6;
+    return { flat: flat(x - w / 2, z - d / 2, x + w / 2, z + d / 2, '#efe3c3', 'stroke-dasharray="3 3" stroke-width=".9"'), top: label(x, z, 0.2, it.label || 'PLOT ' + String(it.n ?? '').padStart(2, '0'), 9, '#6b5b46') }; },
+  river(it) { const { x, z } = it, w = it.w || 40, d = it.d || 10;
+    return { flat: flat(x - w / 2, z - d / 2, x + w / 2, z + d / 2, '#8fc6d6', 'stroke="none"'), top: label(x + 40, z, 0.1, it.label || 'River', 13, '#1d5a6b') }; },
+  zone(it) { const { x, z } = it, w = it.w || 12, d = it.d || 8, k = it.kind || 'station', x0 = x - w / 2, x1 = x + w / 2, z0 = z - d / 2, z1 = z + d / 2, v = d > w;
+    let f = flat(x0, z0, x1, z1, { airport: '#dfe6ea', toll: '#6a6f76', rail: '#cbb994', port: '#cfe0e6' }[k] || '#efe3c8', 'stroke-dasharray="4 3"');
+    if (k === 'airport') { f += flat(x0 + 5, z - 2.4, x1 - 5, z + 2.4, '#4a4f57'); for (let t = x0 + 8; t < x1 - 8; t += 6) f += flat(t, z - 0.2, t + 3, z + 0.2, '#fbf4e4', 'stroke="none"'); }
+    if (k === 'toll') for (let t = (v ? z0 : x0) + 2; t < (v ? z1 : x1) - 3; t += 6) f += v ? flat(x - 0.15, t, x + 0.15, t + 3, '#f2c46a', 'stroke="none"') : flat(t, z - 0.15, t + 3, z + 0.15, '#f2c46a', 'stroke="none"');
+    if (k === 'rail') { for (let t = (v ? z0 : x0) + 1; t < (v ? z1 : x1) - 0.6; t += 1.4) f += v ? flat(x - 2.6, t, x + 2.6, t + 0.5, '#8a6e52', 'stroke="none"') : flat(t, z - 2.6, t + 0.5, z + 2.6, '#8a6e52', 'stroke="none"');
+      f += v ? flat(x - 1.9, z0, x - 1.5, z1, '#4a3a35', 'stroke="none"') + flat(x + 1.5, z0, x + 1.9, z1, '#4a3a35', 'stroke="none"') : flat(x0, z - 1.9, x1, z - 1.5, '#4a3a35', 'stroke="none"') + flat(x0, z + 1.5, x1, z + 1.9, '#4a3a35', 'stroke="none"'); }
+    if (k === 'port') for (const px of [x0 + 8, x0 + 24, x0 + 40]) f += flat(px, z1, px + 6, z1 + 9, '#e8dcc0', 'stroke-dasharray="3 2"');
+    const t = 'Reserved · ' + (it.label || 'Future ' + k), lab = (a, b) => label(a, b, 0.3, t, w > 40 || d > 40 ? 12 : 10, '#8a3a2e');
+    return { flat: f, top: v && d > 120 ? lab(x, z - d / 4) + lab(x, z + d / 4) : !v && w > 200 ? lab(x - w / 4, z) + lab(x + w / 4, z) : lab(x, z) }; },
   tree(it) { return { solid: [{ k: it.x + it.z, svg: tree(it.x, it.z, it.r || 0.85) }] }; },
   park(it) { const { x, z } = it; return { flat: flat(x - 4, z - 3, x + 4, z + 3, '#9cc96b') + flat(x - 0.5, z - 3, x + 0.5, z + 3, '#efe3c6', 'stroke-width=".6"'),
       solid: [[-2.8, -1.8], [2.8, -1.8], [-2.8, 1.8], [2.8, 1.8]].map(([a, b]) => ({ k: x + a + z + b, svg: tree(x + a, z + b, 0.7) })), top: it.label ? label(x, z + 3.6, 0.3, it.label, 11) : '' }; },
@@ -579,7 +630,7 @@ const DRAW = {
   building(it) { const [w, d, h] = SIZES[it.size || 'm']; const [ww, dd] = it.rot ? [d, w] : [w, d];
     return { solid: [{ k: it.x + it.z, svg: gable(it.x, it.z, ww, dd, h, it.wall || '#f3e2a6', it.roof || '#c2574a') + (nameOf(it) ? label(it.x, it.z + dd / 2 + 0.6, h + 1.6, nameOf(it), 11) : '') }] }; },
 };
-const FLAT_ORDER = { block: 0, square: 1, road: 2, rice: 3, wheat: 3, park: 3, pond: 4 };
+const FLAT_ORDER = { river: -1, block: 0, square: 1, road: 2, droad: 2, circle: 2.5, rice: 3, wheat: 3, park: 3, plot: 3, pond: 4, zone: 5 };
 
 // ======== residents: one cartoon person per house (Instagram followers + website citizens), names only for people online ========
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -617,6 +668,7 @@ function areas() {
     if (it.type === 'wheat') A.farm.push([it.x - 7, it.z - 5.4, it.x + 7, it.z + 5.4]);
     if (it.type === 'orchard') A.farm.push([it.x - 5.6, it.z - 9.5, it.x + 5.6, it.z + 9.5]);
     if (it.type === 'square') A.park.push([it.x - 6.6, it.z - 1.6, it.x + 6.6, it.z + 7.6]);
+    if (it.type === 'circle') A.park.push([it.x - 7, it.z + 3.4, it.x + 7, it.z + 7]);
     if (it.type === 'park') A.park.push([it.x - 3.6, it.z - 2.6, it.x + 3.6, it.z + 2.6]);
     const d = it.type === 'building' ? (SIZES[it.size || 'm'] || SIZES.m)[1] : FD[it.type];
     if (d) A.front.push([it.x - 2.2, it.z + d / 2 + 0.5, it.x + 2.2, it.z + d / 2 + 2.4]);
@@ -697,12 +749,12 @@ function render() {
   if (!editing && !mine) { const p = plotPos(slot(nextP)); tops.push(`<g data-free="1" style="cursor:pointer">${label(p.x, p.z, 3.4, 'Your house?', 11, '#d2483e')}</g>`); }
   const sel = editing && layout.items.find((i) => i.id === selId);
   if (sel) { const [a, b] = iso(sel.x, sel.z); tops.push(`<ellipse cx="${a}" cy="${b}" rx="30" ry="17" fill="#d2483e22" stroke="#d2483e" stroke-width="2.4" stroke-dasharray="6 4" pointer-events="none"/>`); }
-  svg.innerHTML = PERSON_DEFS + flat(-200, -180, 220, 200, '#e7d3a3', 'stroke="none"') + flat(-42, -36, 44, 52, '#dcc796', 'stroke="none"') + flats.map((f) => f.svg).join('') + items.map((i) => i.svg).join('') + tops.join('');
+  svg.innerHTML = PERSON_DEFS + flat(-240, -230, 240, 90, '#e7d3a3', 'stroke="none"') + flat(-172, -158, 172, 22, '#dcc796', 'stroke="none"') + flats.map((f) => f.svg).join('') + items.map((i) => i.svg).join('') + tops.join('');
   svg.appendChild(peopleG);
-  if (!VB) { const q = [[-37, -20], [37, -20], [-37, 13], [37, 13], [0, -17], [0, 36], [5, 35]].map(([x, z]) => iso(x, z).map(Number));
+  if (!VB) { const q = [[-60, -56], [60, -56], [-60, 20], [60, 20], [0, -56], [0, 24]].map(([x, z]) => iso(x, z).map(Number));
     const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
     HOME = { x: Math.min(...xs) - 8, y: Math.min(...ys) - 70, w: Math.max(...xs) - Math.min(...xs) + 16, h: Math.max(...ys) - Math.min(...ys) + 80 };
-    if (svg.clientHeight > svg.clientWidth * 1.05) { const [cx, cy] = iso(4, -6).map(Number), w = HOME.w * 0.5; HOME = { x: cx - w / 2, y: cy - w * 0.5, w, h: w }; }
+    if (svg.clientHeight > svg.clientWidth * 1.05) { const [cx, cy] = iso(0, -16).map(Number), w = HOME.w * 0.5; HOME = { x: cx - w / 2, y: cy - w * 0.5, w, h: w }; }
     VB = contain(HOME); fit(); }
   renderHeader();
   $('#next').textContent = 'Next free house: ' + address(nextP);
@@ -728,7 +780,7 @@ const miniHouse = (st) => `<svg class="dot" viewBox="-14 -22 28 26" aria-hidden=
 const badge = (c, t) => `<svg class="dot" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="14" fill="${c}" stroke="${INK}" stroke-width="2.5"/><text x="17" y="23" text-anchor="middle" font-size="17" font-weight="800" fill="${INK}">${t}</text></svg>`;
 function contain(b) { const cw = svg.clientWidth || 1, ch = svg.clientHeight || 1, ar = ch / cw; let w = b.w, h = b.h; if (h / w < ar) h = w * ar; else w = h / ar; return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h }; }
 function fit() { svg.setAttribute('viewBox', `${VB.x} ${VB.y} ${VB.w} ${VB.h}`); }
-function zoomAt(f, px = 0.5, py = 0.5) { const w = Math.min(Math.max(VB.w * f, 90), HOME.w * 3.2), h = VB.h * (w / VB.w); VB.x += (VB.w - w) * px; VB.y += (VB.h - h) * py; VB.w = w; VB.h = h; fit(); }
+function zoomAt(f, px = 0.5, py = 0.5) { const w = Math.min(Math.max(VB.w * f, 90), HOME.w * 7), h = VB.h * (w / VB.w); VB.x += (VB.w - w) * px; VB.y += (VB.h - h) * py; VB.w = w; VB.h = h; fit(); }
 function flyTo(n) { focusN = n; const p = plotPos(slot(n)); const [a, b] = iso(p.x, p.z, 1); VB = contain({ x: a - 150, y: b - 100, w: 300, h: 200 }); fit(); }
 
 // pan / pinch / tap
